@@ -1108,7 +1108,7 @@
         <button class="tab-btn" data-tab="supplies">🌱 보유 비료</button>
         <button class="tab-btn" data-tab="plants">🌾 재배 작물</button>
         <button class="tab-btn" data-tab="records">📋 기록 일지</button>
-      <button class="tab-btn" data-tab="about">🏡 우리 밭&최신작물목록갱신</button>
+      <button class="tab-btn" data-tab="about">🏡 우리 밭&최신작물목록 갱신</button>
     </div>
 
     <div class="container">
@@ -1376,7 +1376,7 @@
 
             </div>
 
-            <!-- 🏡 우리 밭&최신작물목록갱신 -->
+            <!-- 🏡 우리밭&최신작물목록 갱신 -->
             <div id="about" class="tab-content">
                 <div class="section-title">
                     <span class="emoji">🏡</span>
@@ -1388,7 +1388,7 @@
                     <div style="font-weight:700;color:#33691E;font-size:15px;margin-bottom:8px">
                         🌳 새솔동 과수원</div>
                     <div style="font-size:13px;color:#424242;line-height:1.8">
-                        경기도 화성시 만세구 새솔동에 있는 작은 밭입니다.<br>
+                        경기도 화성시 만세구 새솔동에 있는 학교 과수원입니다.<br>
                         <b>100여 종</b>의 과수와 채소를 다섯 구역에 나누어 기르고 있습니다.
                     </div>
                     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">
@@ -1452,6 +1452,7 @@
                         🔄 최신작물목록 갱신</button>
                     <div id="upd-result" style="margin-top:9px"></div>
                 </div>
+
 
                 <!-- 자료 출처 -->
                 <div class="section-title" style="font-size:15px;margin-top:18px">
@@ -6661,22 +6662,38 @@
             var e = expectHarvest(hit.sow, cropName);
             if(!e) return '';
 
-            var col, txt;
-            if(e.state === 'over'){       col = '#8D6E63'; txt = '📌 수확 지남'; }
-            else if(e.state === 'ready'){ col = '#2E7D32'; txt = '🧺 거둘 때'; }
-            else if(e.state === 'soon'){  col = '#F57C00'; txt = e.leftToStart + '일 뒤'; }
-            else {                        col = '#90A4AE'; txt = e.leftToStart + '일 남음'; }
+            var col, txt, sub = '';
 
-            // 수확 예정 기간을 함께 보여준다
-            var md = function(d){ return d ? (d.getMonth()+1) + '/' + d.getDate() : ''; };
-            var span = e.from
-                ? md(e.from) + (e.to ? '~' + md(e.to) : '')
-                : '';
+            if(e.kind === 'perennial'){
+                if(e.state === 'young'){
+                    col = '#7986CB';
+                    txt = e.nthYear + '년차 · ' + e.per.year + '년차부터';
+                } else if(e.state === 'ready'){
+                    col = '#2E7D32';
+                    txt = e.per.cut ? '✂️ 벨 때' : '🧺 거둘 때';
+                } else {
+                    col = '#90A4AE';
+                    txt = e.nthYear + '년차 · 철이 아닙니다';
+                }
+                sub = e.per.note;
+            } else if(e.kind === 'tree'){
+                col = e.state === 'young' ? '#7986CB' : '#33691E';
+                txt = e.nthYear + '년차 · ' + e.stage.name;
+                sub = e.stage.note;
+            } else {
+                if(e.state === 'over'){       col = '#8D6E63'; txt = '📌 수확 지남'; }
+                else if(e.state === 'ready'){ col = '#2E7D32'; txt = '🧺 거둘 때'; }
+                else if(e.state === 'soon'){  col = '#F57C00'; txt = e.leftToStart + '일 뒤'; }
+                else {                        col = '#90A4AE'; txt = e.leftToStart + '일 남음'; }
+
+                var md = function(d){ return d ? (d.getMonth()+1) + '/' + d.getDate() : ''; };
+                if(e.from) sub = '🧺 ' + md(e.from) + (e.to ? '~' + md(e.to) : '');
+            }
 
             return '<span style="font-size:10px;color:' + col + ';font-weight:600">'
                  + txt + '</span>'
-                 + (span ? '<br><span style="font-size:10px;color:#78909C;'
-                         + 'white-space:nowrap">🧺 ' + span + '</span>' : '')
+                 + (sub ? '<br><span style="font-size:9.5px;color:#78909C">'
+                        + sub + '</span>' : '')
                  + (e.days ? '<br><span style="font-size:9.5px;color:#BDBDBD">'
                            + e.days + '일째</span>' : '');
         }
@@ -6693,6 +6710,9 @@
                 var e = expectHarvest(x.sow, x.crop);
                 if(!e) return;
                 // 거둘 때 · 2주 안 · 때 지남 만 고른다
+                // 나무의 유목기·다년생 어린 것은 뺀다
+                if(e.kind === 'tree') return;
+                if(e.kind === 'perennial' && e.state !== 'ready') return;
                 if(e.state === 'ready' || e.state === 'soon' || e.state === 'over'){
                     soon.push({ crop: x.crop, days: e.days, e: e });
                 }
@@ -6709,7 +6729,11 @@
 
             var rows = soon.slice(0, 8).map(function(x){
                 var e = x.e, col, mark, msg;
-                if(e.state === 'over'){
+                if(e.kind === 'perennial'){
+                    col = '#2E7D32'; mark = e.per.cut ? '✂️' : '🧺';
+                    msg = (e.per.cut ? '벨 때입니다' : '거둘 때입니다')
+                        + ' · ' + e.nthYear + '년차';
+                } else if(e.state === 'over'){
                     col = '#8D6E63'; mark = '📌';
                     msg = '수확 때가 지났습니다 — 거두셨으면 기록해 주세요';
                 } else if(e.state === 'ready'){
@@ -6747,6 +6771,56 @@
                     + '이미 거두신 작물은 <b>기록 일지</b>에 수확을 남겨주세요.<br>'
                     + '그러면 목록에서 빠지고, 이듬해 계획에 쓰입니다.</div>' : '')
             + '</div>';
+        }
+
+        // ══ 재배 방식 — 1년생 · 다년생 · 영년생 ═══════════
+        //   다년생 산채는 심은 해에 안 거둡니다.
+        //   두릅은 2년차, 아스파라거스·명이는 3년차부터입니다.
+
+        var PERENNIAL = {
+            // 이름조각: { 첫수확 년차, 해마다 거두는 달(1~12), 안내 }
+            '아스파라거스': { year:3, months:[4,5,6],   note:'3년차부터 본격 수확 · 봄순' },
+            '두릅':        { year:2, months:[4,5],     note:'2년차 4월 봄순' },
+            '땅두릅':      { year:2, months:[4,5],     note:'2년차 4월 봄순' },
+            '고사리':      { year:2, months:[4,5],     note:'2~3년차 봄 새순' },
+            '명이':        { year:3, months:[4,5],     note:'3~4년차 4월 잎' },
+            '산마늘':      { year:3, months:[4,5],     note:'3~4년차 4월 잎' },
+            '참취':        { year:2, months:[4,5,6],   note:'2년차부터 봄나물' },
+            '곰취':        { year:2, months:[4,5,6],   note:'2년차부터 봄나물' },
+            '어수리':      { year:2, months:[4,5,6],   note:'2년차부터 봄나물' },
+            '곤드레':      { year:2, months:[4,5,6],   note:'2년차부터 봄나물' },
+            '더덕':        { year:2, months:[9,10,11], note:'2~3년차 가을 굴취' },
+            '도라지':      { year:2, months:[9,10,11], note:'2~3년차 가을 굴취' },
+            '부추':        { year:1, months:[5,6,7,8,9,10], cut:true,
+                             note:'정식 60일 뒤부터 연 4~6회 예취' },
+            '생강':        { year:1, months:[10,11],   note:'가을 굴취' }
+        };
+
+        // 과수 — 나무 나이에 따라 다릅니다
+        var TREE_STAGE = [
+            { to:2,  name:'유목기',  note:'수형 만들기 · 착과 제한 (아직 안 거둡니다)' },
+            { to:4,  name:'결실기',  note:'초기 결실 · 수관 넓히기' },
+            { to:99, name:'성목기',  note:'본격 수확 · 적화·적과·봉지씌우기' }
+        ];
+
+        function _perennialOf(cropName){
+            var s = String(cropName || '');
+            var hit = null;
+            Object.keys(PERENNIAL).some(function(k){
+                if(s.indexOf(k) >= 0){ hit = PERENNIAL[k]; hit._key = k; return true; }
+                return false;
+            });
+            return hit;
+        }
+
+        // 나무인가 (유실수 갈래)
+        function _isTreeCrop(cropName){
+            var hdr = _gpHeaders();
+            var ni = hdr.indexOf('name'), ci = hdr.indexOf('category');
+            if(ni < 0 || ci < 0) return false;
+            var hit = (APP.data.growPlants || []).find(function(r){
+                return r && String(r[ni]).trim() === String(cropName).trim(); });
+            return hit ? /유실수|과수|나무/.test(String(hit[ci] || '')) : false;
         }
 
         // ══ 표준 재배기간 (soilCropCode 시트) ══════════════
@@ -6832,22 +6906,63 @@
         }
 
         // 심은 날 + 표준일수 = 예상 수확 기간
+        //   다년생·영년생은 년차로 따집니다
         function expectHarvest(sowDate, cropName){
-            var std = stdPeriodOf(cropName);
-            if(!std || !sowDate) return null;
-            var s = new Date(sowDate);
-            if(isNaN(s.getTime())) return null;
+            if(!sowDate) return null;
+            var s0 = new Date(sowDate);
+            if(isNaN(s0.getTime())) return null;
+            var now0 = new Date();
+            var yearsIn = (now0 - s0) / 86400000 / 365;
+            var nthYear = Math.floor(yearsIn) + 1;      // 1년차부터
 
+            // ① 다년생 산채
+            var per = _perennialOf(cropName);
+            if(per){
+                var m = now0.getMonth() + 1;
+                var inSeason = per.months.indexOf(m) >= 0;
+                var ready = (nthYear >= per.year) && inSeason;
+
+                var state;
+                if(nthYear < per.year) state = 'young';        // 아직 어립니다
+                else if(ready)         state = 'ready';
+                else                   state = 'wait';         // 철이 아닙니다
+
+                return {
+                    kind: 'perennial', per: per,
+                    nthYear: nthYear, days: Math.round((now0 - s0) / 86400000),
+                    state: state, inSeason: inSeason,
+                    yearsLeft: Math.max(0, per.year - nthYear),
+                    std: { min: null, max: null, harvestTime: per.note },
+                    from: null, to: null, leftToStart: null, leftToEnd: null
+                };
+            }
+
+            // ② 과수 — 나무 나이
+            if(_isTreeCrop(cropName)){
+                var st = TREE_STAGE.find(function(x){ return nthYear <= x.to; }) || TREE_STAGE[2];
+                return {
+                    kind: 'tree', stage: st,
+                    nthYear: nthYear, days: Math.round((now0 - s0) / 86400000),
+                    state: nthYear <= 2 ? 'young' : 'tree',
+                    std: { min: null, max: null, harvestTime: st.note },
+                    from: null, to: null, leftToStart: null, leftToEnd: null
+                };
+            }
+
+            // ③ 1년생 — 지금까지 하던 대로
+            var std = stdPeriodOf(cropName);
+            if(!std) return null;
+            var s = s0, now = now0;
             var from = std.min ? new Date(s.getTime() + std.min * 86400000) : null;
             var to   = std.max ? new Date(s.getTime() + std.max * 86400000) : null;
-            var now  = new Date();
             var days = Math.round((now - s) / 86400000);
 
             var state = 'before';
             if(from && now >= from) state = (to && now > to) ? 'over' : 'ready';
             else if(from && (from - now) / 86400000 <= 14) state = 'soon';
 
-            return { std: std, from: from, to: to, days: days, state: state,
+            return { kind: 'annual', std: std, from: from, to: to, days: days, state: state,
+                     nthYear: nthYear,
                      leftToStart: from ? Math.round((from - now) / 86400000) : null,
                      leftToEnd:   to   ? Math.round((to - now) / 86400000) : null };
         }
