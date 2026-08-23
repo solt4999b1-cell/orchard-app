@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes, maximum-scale=5.0">
     <meta name="description" content="새솔동 과수원 - 과수 관리 시스템">
     <meta name="theme-color" content="#2a5f2a">
     <!-- ✅ PWA 메타 태그 (모든 기기 호환) -->
@@ -24,8 +24,44 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        /* 글자는 고를 수 있게 — 확대해서 읽거나 옮겨 적을 때 필요합니다 */
+        body, p, span, div, td, th, li, h1, h2, h3, h4, h5, h6, b, strong, small {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+        /* 누르는 것들은 안 골라지게 */
+        button, .tab-btn, .scroll-btn, select, .emoji,
+        .menu-toggle-btn, .pesticide-link {
             -webkit-user-select: none;
             user-select: none;
+        }
+
+        /* 글자 크기 버튼 */
+        .font-btn {
+            position: absolute;
+            top: 12px; right: 62px;
+            width: 40px; height: 40px;
+            background: rgba(255,255,255,.9);
+            color: #2a5f2a;
+            border: 1.5px solid rgba(42,95,42,.3);
+            border-radius: 9px;
+            font-size: 17px; font-weight: 700;
+            cursor: pointer; font-family: inherit;
+            z-index: 20;
+        }
+        .font-btn:active { transform: scale(.94); }
+
+        /* 글자 크기 단계 — 본문 글씨만 키운다 */
+        body.fs-1 { font-size: 108%; }
+        body.fs-2 { font-size: 118%; }
+        body.fs-3 { font-size: 130%; }
+
+        /* 손가락으로 확대할 수 있게 */
+        html, body {
+            touch-action: manipulation;
+            -webkit-text-size-adjust: 100%;
         }
 
         :root {
@@ -1036,6 +1072,8 @@
             <span>📅 오늘: <strong id="today-date"></strong></span>
             <span>📊 상태: <strong id="load-status">초기화 중<span class="spinner"></span></strong></span>
         </div>
+        <button class="font-btn" onclick="cycleFontSize()" id="font-btn"
+                title="글자 크기">가</button>
         <button class="menu-toggle-btn" id="menu-toggle-btn" title="메뉴 토글">☰</button>
     </header>
 
@@ -1382,23 +1420,6 @@
 
                 <div id="about-features"></div>
 
-
-                <!-- 최신 작물 목록 읽기 -->
-                <div class="section-title" style="font-size:15px;margin-top:18px">
-                    <span class="emoji">🔄</span><span>최신 작물 목록 읽기 </span></div>
-
-                <div style="background:#FFF8E1;border-radius:9px;padding:12px 14px;
-                     font-size:12px;color:#795548;line-height:1.7">
-                    작물코드와 시비량은 <b>공공기관 자료</b>라 가끔 늘어납니다.<br>
-                    새 작물을 심으셨거나 한참 만에 여실 때 눌러주세요.
-                    <button onclick="updateSheets()" id="upd-btn"
-                        style="display:block;width:100%;margin-top:10px;padding:11px;
-                        background:#5D4037;color:#fff;border:none;border-radius:8px;
-                        cursor:pointer;font-size:14px;font-weight:700;font-family:inherit">
-                        🔄 최신 작물 목록 읽기</button>
-                    <div id="upd-result" style="margin-top:9px"></div>
-                </div>
-                
                 <!-- 자료 출처 -->
                 <div class="section-title" style="font-size:15px;margin-top:18px">
                     <span class="emoji">📚</span><span>자료 출처</span></div>
@@ -1468,6 +1489,22 @@
                                style="font-size:11px;color:#1565C0">data.go.kr</a>
                         </div>
                     </div>
+                </div>
+
+                <!-- 최신작물목록읽기 -->
+                <div class="section-title" style="font-size:15px;margin-top:18px">
+                    <span class="emoji">🔄</span><span>최신작물목록읽기</span></div>
+
+                <div style="background:#FFF8E1;border-radius:9px;padding:12px 14px;
+                     font-size:12px;color:#795548;line-height:1.7">
+                    작물코드와 시비량은 <b>공공기관 자료</b>라 가끔 늘어납니다.<br>
+                    새 작물을 심으셨거나 한참 만에 여실 때 눌러주세요.
+                    <button onclick="updateSheets()" id="upd-btn"
+                        style="display:block;width:100%;margin-top:10px;padding:11px;
+                        background:#5D4037;color:#fff;border:none;border-radius:8px;
+                        cursor:pointer;font-size:14px;font-weight:700;font-family:inherit">
+                        🔄 최신작물목록읽기</button>
+                    <div id="upd-result" style="margin-top:9px"></div>
                 </div>
 
                 <div style="background:#F5F5F5;border-radius:9px;padding:11px 14px;
@@ -2402,6 +2439,7 @@
             
             console.log('✅ renderWeekly 완료!');
             // async 함수라 catch 로는 못 잡는다 — Promise 로 받는다
+            try { applyFontSize(); } catch(e){}
             Promise.resolve()
                 .then(function(){ return renderWeather(); })
                 .catch(function(e){ console.warn('🌤 날씨 그리기 실패:', e && e.message, e); });
@@ -6412,6 +6450,33 @@
                 btn.disabled = false;
                 btn.textContent = '🔄 시트 자료 갱신하기';
             }
+        }
+
+        // ══ 글자 크기 ════════════════════════════════════
+        //   기본 → 조금 크게 → 크게 → 아주 크게 → 기본
+        var _fsStep = 0;
+        try { _fsStep = parseInt(localStorage.getItem('font_step') || '0', 10) || 0; } catch(e){}
+
+        var _FS_NAME = ['기본', '조금 크게', '크게', '아주 크게'];
+
+        function applyFontSize(){
+            var b = document.body;
+            b.classList.remove('fs-1', 'fs-2', 'fs-3');
+            if(_fsStep > 0) b.classList.add('fs-' + _fsStep);
+
+            var btn = document.getElementById('font-btn');
+            if(btn){
+                btn.textContent = _fsStep === 0 ? '가' : '가'.repeat(1) + _fsStep;
+                btn.style.fontSize = (16 + _fsStep * 2) + 'px';
+                btn.title = '글자 크기 · ' + _FS_NAME[_fsStep];
+            }
+        }
+
+        function cycleFontSize(){
+            _fsStep = (_fsStep + 1) % 4;
+            try { localStorage.setItem('font_step', String(_fsStep)); } catch(e){}
+            applyFontSize();
+            if(typeof _pestToast === 'function') _pestToast('글자 크기 · ' + _FS_NAME[_fsStep]);
         }
 
         // 밭 사진을 크게 보여준다
