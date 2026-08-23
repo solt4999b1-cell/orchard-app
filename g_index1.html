@@ -1108,7 +1108,7 @@
         <button class="tab-btn" data-tab="supplies">🌱 보유 비료</button>
         <button class="tab-btn" data-tab="plants">🌾 재배 작물</button>
         <button class="tab-btn" data-tab="records">📋 기록 일지</button>
-      <button class="tab-btn" data-tab="about">🏡 우리 밭&최신작물목록읽기</button>
+      <button class="tab-btn" data-tab="about">🏡 우리 밭&최신작물목록갱신</button>
     </div>
 
     <div class="container">
@@ -1376,20 +1376,33 @@
 
             </div>
 
-                <!-- 자료 갱신 -->
-                <div class="section-title" style="font-size:15px;margin-top:18px">
-                    <span class="emoji">🔄</span><span>자료 갱신</span></div>
+            <!-- 🏡 우리 밭&최신작물목록갱신 -->
+            <div id="about" class="tab-content">
+                <div class="section-title">
+                    <span class="emoji">🏡</span>
+                    <span>우리 밭 이야기</span>
+                </div>
 
-                <div style="background:#FFF8E1;border-radius:9px;padding:12px 14px;
-                     font-size:12px;color:#795548;line-height:1.7">
-                    작물코드와 시비량은 <b>공공기관 자료</b>라 가끔 늘어납니다.<br>
-                    새 작물을 심으셨거나 한참 만에 여실 때 눌러주세요.
-                    <button onclick="updateSheets()" id="upd-btn"
-                        style="display:block;width:100%;margin-top:10px;padding:11px;
-                        background:#5D4037;color:#fff;border:none;border-radius:8px;
-                        cursor:pointer;font-size:14px;font-weight:700;font-family:inherit">
-                        🔄 시트 자료 갱신하기</button>
-                    <div id="upd-result" style="margin-top:9px"></div>
+                <div style="background:#F1F8E9;border:1.5px solid #C5E1A5;border-radius:10px;
+                     padding:14px 16px;margin-bottom:14px">
+                    <div style="font-weight:700;color:#33691E;font-size:15px;margin-bottom:8px">
+                        🌳 새솔동 과수원</div>
+                    <div style="font-size:13px;color:#424242;line-height:1.8">
+                        경기도 화성시 만세구 새솔동에 있는 작은 밭입니다.<br>
+                        <b>100여 종</b>의 과수와 채소를 다섯 구역에 나누어 기르고 있습니다.
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">
+                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
+                              padding:3px 10px;font-size:12px;color:#33691E">1구역 · 22m</span>
+                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
+                              padding:3px 10px;font-size:12px;color:#33691E">사이구역 · 20m</span>
+                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
+                              padding:3px 10px;font-size:12px;color:#33691E">2구역 · 16~20m</span>
+                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
+                              padding:3px 10px;font-size:12px;color:#33691E">하우스 · 10m</span>
+                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
+                              padding:3px 10px;font-size:12px;color:#33691E">하우스 앞 · 15m</span>
+                    </div>
                 </div>
 
                 <!-- 밭 사진 -->
@@ -1424,33 +1437,20 @@
 
                 <div id="about-features"></div>
 
-            <!-- 🏡 우리 밭&최신작물목록읽기 -->
-            <div id="about" class="tab-content">
-                <div class="section-title">
-                    <span class="emoji">🏡</span>
-                    <span>우리 밭 이야기</span>
-                </div>
+                <!-- 최신작물목록 갱신 -->
+                <div class="section-title" style="font-size:15px;margin-top:18px">
+                    <span class="emoji">🔄</span><span>최신작물목록 갱신</span></div>
 
-                <div style="background:#F1F8E9;border:1.5px solid #C5E1A5;border-radius:10px;
-                     padding:14px 16px;margin-bottom:14px">
-                    <div style="font-weight:700;color:#33691E;font-size:15px;margin-bottom:8px">
-                        🌳 새솔동 과수원</div>
-                    <div style="font-size:13px;color:#424242;line-height:1.8">
-                        경기도 화성시 만세구 새솔동에 있는 학교 과수원입니다.<br>
-                        <b>100여 종</b>의 과수와 채소를 다섯 구역에 나누어 기르고 있습니다.
-                    </div>
-                    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">
-                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
-                              padding:3px 10px;font-size:12px;color:#33691E">1구역 · 22m</span>
-                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
-                              padding:3px 10px;font-size:12px;color:#33691E">사이구역 · 20m</span>
-                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
-                              padding:3px 10px;font-size:12px;color:#33691E">2구역 · 16~20m</span>
-                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
-                              padding:3px 10px;font-size:12px;color:#33691E">하우스 · 10m</span>
-                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
-                              padding:3px 10px;font-size:12px;color:#33691E">하우스 앞 · 15m</span>
-                    </div>
+                <div style="background:#FFF8E1;border-radius:9px;padding:12px 14px;
+                     font-size:12px;color:#795548;line-height:1.7">
+                    작물코드와 시비량은 <b>공공기관 자료</b>라 가끔 늘어납니다.<br>
+                    새 작물을 심으셨거나 한참 만에 여실 때 눌러주세요.
+                    <button onclick="updateSheets()" id="upd-btn"
+                        style="display:block;width:100%;margin-top:10px;padding:11px;
+                        background:#5D4037;color:#fff;border:none;border-radius:8px;
+                        cursor:pointer;font-size:14px;font-weight:700;font-family:inherit">
+                        🔄 최신작물목록 갱신</button>
+                    <div id="upd-result" style="margin-top:9px"></div>
                 </div>
 
                 <!-- 자료 출처 -->
