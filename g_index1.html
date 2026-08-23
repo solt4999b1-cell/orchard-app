@@ -1447,6 +1447,17 @@
                         </div>
                     </div>
 
+                    <div style="margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #EEE">
+                        <div style="font-weight:700;color:#03C75A">네이버</div>
+                        <div style="color:#616161;line-height:1.7;margin-top:3px">
+                            <b>검색 · 이미지</b><br>
+                            <span style="font-size:11px;color:#78909C">
+                                NCPMS 에 사진이 없는 병해충의 증상 사진 · 실제 밭 사례</span><br>
+                            <a href="https://search.naver.com" target="_blank"
+                               style="font-size:11px;color:#1565C0">search.naver.com</a>
+                        </div>
+                    </div>
+
                     <div>
                         <div style="font-weight:700;color:#33691E">공공데이터포털</div>
                         <div style="color:#616161;line-height:1.7;margin-top:3px">
@@ -2053,20 +2064,14 @@
                                                         
                                                         if (isOwnedCrop) {
                                                             foundCrop = true;
-                                                            const parts = details.split(',');
-                                                            if (parts.length >= 3) {
-                                                                // parts[2]가 희석배수/용량
-                                                                dilution = parts[2]?.trim() || '-';
-                                                                
-                                                                // 사용횟수를 동적으로 찾기 ("회"를 포함하는 부분)
-                                                                usageCount = '-';
-                                                                for (let i = 0; i < parts.length; i++) {
-                                                                    if (parts[i]?.includes('회')) {
-                                                                        usageCount = parts[i]?.trim();
-                                                                        break;
-                                                                    }
-                                                                }
-                                                            }
+                                                            // 「1000배」 처럼 숫자+배 인 것만 희석배수로
+                                                            var _md = details.match(/(\d[\d,]*)\s*배/);
+                                                            dilution = _md ? _md[1].replace(/,/g,'') + '배' : '-';
+
+                                                            // 「5회」 처럼 숫자+회 인 것만
+                                                            //   「2병」 「3개」 같은 수량과 안 섞이게
+                                                            var _mc = details.match(/(\d+)\s*회/);
+                                                            usageCount = _mc ? _mc[1] + '회' : '-';
                                                         }
                                                     }
                                                 });
@@ -2079,19 +2084,14 @@
                                                     
                                                     if (firstParen !== -1 && lastParen !== -1 && lastParen > firstParen) {
                                                         const details = line.substring(firstParen + 1, lastParen);
-                                                        const parts = details.split(',');
-                                                        if (parts.length >= 3) {
-                                                            dilution = parts[2]?.trim() || '-';
-                                                            
-                                                            // 사용횟수를 동적으로 찾기
-                                                            usageCount = '-';
-                                                            for (let i = 0; i < parts.length; i++) {
-                                                                if (parts[i]?.includes('회')) {
-                                                                    usageCount = parts[i]?.trim();
-                                                                    break;
-                                                                }
-                                                            }
-                                                        }
+                                                        // 「1000배」 처럼 숫자+배 인 것만
+                                                        var _md2 = details.match(/(\d[\d,]*)\s*배/);
+                                                        dilution = _md2 ? _md2[1].replace(/,/g,'') + '배' : '-';
+
+                                                        // 「5회」 처럼 숫자+회 인 것만
+                                                        //   「2병」 「3개」 같은 수량과 안 섞이게
+                                                        var _mc2 = details.match(/(\d+)\s*회/);
+                                                        usageCount = _mc2 ? _mc2[1] + '회' : '-';
                                                     }
                                                 }
                                                 
@@ -2245,9 +2245,56 @@
                             </div>
                             ${recommendedPesticides.map(pesticide => {
                                 const pesticideName = pesticide[1];
-                                const dilution = pesticide[6] || '-';
-                                const usageTimes = pesticide[4] || '-';
                                 const memo = pesticide[12] || '';
+
+                                // 희석배수·사용횟수는 메모에서 읽는다
+                                //   pesticide[6] 은 회사명, pesticide[4] 는 단위(병·개) 라
+                                //   그대로 쓰면 「경농」 「병회」 처럼 나온다
+                                var _rule = null;
+                                (getOwnedPlants() || []).some(function(c){
+                                    _rule = _safeRuleOf(pesticide, c);
+                                    return !!_rule;
+                                });
+                                if(!_rule) _rule = {};
+
+                                // 기르는 작물의 조각을 먼저 찾고, 없으면 메모 전체에서
+                                var _seg = memo;
+                                (getOwnedPlants() || []).some(function(c){
+                                    var bare = String(c).replace(/\([^)]*\)/g,'')
+                                                .replace(/[①-⑩]/g,'').replace(/\d+\s*이랑/g,'').trim();
+                                    if(!bare) return false;
+                                    var parts = memo.split(/\)\s*\/\s*/);
+                                    for(var pi = 0; pi < parts.length; pi++){
+                                        var head = (parts[pi].match(/^([^(]+)\(/) || [])[1];
+                                        if(head && head.replace(/\s/g,'').indexOf(bare) >= 0){
+                                            _seg = parts[pi];
+                                            return true;
+                                        }
+                                    }
+                                    return false;
+                                });
+
+                                if(!_rule.dil && _rule.vol) _rule.dil = _rule.vol;
+                                if(!_rule.dil){
+                                    // ① 「133배」 처럼 희석배수
+                                    var _r2 = _seg.match(/(\d[\d,]*)\s*[~]\s*(\d[\d,]*)\s*배/);
+                                    var _d  = _seg.match(/(\d[\d,]*)\s*배/);
+                                    if(_r2)      _rule.dil = _r2[1].replace(/,/g,'') + '~' + _r2[2].replace(/,/g,'') + '배';
+                                    else if(_d)  _rule.dil = _d[1].replace(/,/g,'') + '배';
+                                    else {
+                                        // ② 「300㎖/10a」 처럼 살포량 (제초제에 흔합니다)
+                                        var _ml = _seg.match(/(\d[\d,]*(?:\.\d+)?)\s*(㎖|ml|mL|㏄|L|ℓ|g|㎏|kg)\s*\/\s*(10a|㎡|주|평)/i);
+                                        if(_ml) _rule.dil = _ml[1].replace(/,/g,'') + _ml[2] + '/' + _ml[3];
+                                    }
+                                }
+                                if(!_rule.times){
+                                    var _c = _seg.match(/(\d+)\s*회/);
+                                    if(_c) _rule.times = parseInt(_c[1], 10);
+                                }
+                                const dilution   = (_rule && _rule.dil) ? _rule.dil
+                                                 : (memo ? '기준 없음' : '정보 없음');
+                                const usageTimes = (_rule && _rule.times) ? _rule.times + '회'
+                                                 : (memo ? '제한 없음' : '정보 없음');
                                 
                                 const ownedPlants = getOwnedPlants();
                                 
@@ -2282,9 +2329,13 @@
                                                 </div>
                                                 <div style="background: #f5f5f5; padding: 8px; border-radius: 6px;">
                                                     <div style="font-size: 12px; color: #666; margin-bottom: 4px;">사용가능횟수</div>
-                                                    <div style="font-size: 16px; font-weight: bold; color: var(--primary-color);">${usageTimes}회</div>
+                                                    <div style="font-size: 16px; font-weight: bold; color: var(--primary-color);">${usageTimes}</div>
                                                 </div>
                                             </div>
+                                            ${(function(){
+                                                try { return herbicideWarnHtml(pesticide); }
+                                                catch(e){ return ''; }
+                                            })()}
                                             ${relevantCrops.length > 0 ? `
                                                 <div style="background: #e8f5e9; padding: 8px; border-radius: 6px; border-left: 4px solid var(--primary-color);">
                                                     <div style="font-size: 12px; color: #666; margin-bottom: 4px;">재배 작물</div>
@@ -2374,6 +2425,19 @@
             tbody.innerHTML = APP.data.myPesticides.map((r, idx) => {
                 const pesticideId = r[0];  // id
                 const name = r[1] || '-';  // 농약명
+
+                // 비선택성 제초제면 표시해 둔다
+                var _hk = '';
+                try {
+                    var _k = _herbicideKind(r);
+                    if(_k === 'non') _hk = ' <span onclick="showHerbicideInfo(\'' 
+                        + String(r[0]).replace(/'/g,'') + '\')" '
+                        + 'style="background:#FFEBEE;color:#C62828;border-radius:5px;'
+                        + 'padding:1px 5px;font-size:10px;font-weight:700;cursor:pointer;'
+                        + 'white-space:nowrap">🚫 비선택성</span>';
+                    else if(_k) _hk = ' <span style="background:#FFF8E1;color:#E65100;'
+                        + 'border-radius:5px;padding:1px 5px;font-size:10px">제초제</span>';
+                } catch(e){}
                 const type = r[2] || '-';  // 종류
                 const quantity = r[16] || 1;  // 보유량 (기본값 1)
                 const pesticideStatus = r[9] || '여유';  // 상태 (여유/구입필요)
@@ -2383,7 +2447,7 @@
                 let statusDisplay = pesticideStatus === '여유' ? '여유' : '구입필요';
 
                 return `<tr>
-                    <td><span class="pesticide-link" onclick="openPesticideModal(${idx})">${name}</span></td>
+                    <td><span class="pesticide-link" onclick="openPesticideModal(${idx})">${name}</span>${_hk}</td>
                     <td>${type}</td>
                     <td>
                         <div style="display: flex; gap: 4px; align-items: center; justify-content: center;">
@@ -2464,97 +2528,7 @@
 
 
         // ✅ 비료 정보 표시 함수
-        function displayFertilizerInfo(fertilizerName) {
-            const details = document.getElementById('fertilizer-details');
-            if (!fertilizerName) {
-                details.style.display = 'none';
-                return;
-            }
 
-            const info = FERTILIZER_INFO[fertilizerName];
-            if (!info) {
-                details.innerHTML = '<p>정보가 없습니다</p>';
-                return;
-            }
-
-            let html = `
-                <div>
-                    <h4 style="color: var(--primary-color); margin-bottom: 8px;">${info.name}</h4>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; font-size: 12px;">
-                        <div><span style="font-weight: 600;">분류:</span> ${info.type}</div>
-                        <div><span style="font-weight: 600;">성분:</span> ${info.npk}</div>
-                        <div><span style="font-weight: 600;">단위:</span> ${info.unit}</div>
-                        <div><span style="font-weight: 600;">유효기간:</span> ${info.shelfLife}</div>
-                    </div>
-                    
-                    <p style="font-size: 12px; color: #666; margin-bottom: 8px;">${info.description}</p>
-                    
-                    <div style="background: white; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 12px;">
-                        <div style="font-weight: 600; margin-bottom: 4px;">🌟 특징:</div>
-                        <ul style="margin: 0; padding-left: 16px; font-size: 11px;">
-                            ${info.features.map(f => '<li>' + f + '</li>').join('')}
-                        </ul>
-                    </div>
-            `;
-
-            if (info.baseFertilizer) {
-                html += `
-                    <div style="background: white; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 12px;">
-                        <div style="font-weight: 600; margin-bottom: 4px;">💡 기본 기저비료:</div>
-                        <div style="font-size: 11px;">
-                            ⏰ ${info.baseFertilizer.timing}<br>
-                            📊 ${info.baseFertilizer.dosage}<br>
-                            🔨 ${info.baseFertilizer.method}<br>
-                            ⏳ ${info.baseFertilizer.afterDays}
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (info.topDressing) {
-                html += `
-                    <div style="background: white; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 12px;">
-                        <div style="font-weight: 600; margin-bottom: 4px;">🌱 추가 시비:</div>
-                        <div style="font-size: 11px;">
-                            1️⃣ ${info.topDressing.firstTiming}<br>
-                            2️⃣ ${info.topDressing.frequency}<br>
-                            3️⃣ ${info.topDressing.dosage}<br>
-                            4️⃣ ${info.topDressing.afterWatering}
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (info.usage) {
-                html += `
-                    <div style="background: white; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 12px;">
-                        <div style="font-weight: 600; margin-bottom: 4px;">💧 사용 방법:</div>
-                        <div style="font-size: 11px;">
-                            ${info.usage}
-                            ${info.dilution ? '<br>농도: ' + info.dilution : ''}
-                        </div>
-                    </div>
-                `;
-            }
-
-            html += `
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
-                        <div>
-                            <div style="font-weight: 600;">🌾 사용 가능 작물:</div>
-                            <div>${info.crops.slice(0, 5).join(', ')}${info.crops.length > 5 ? '...' : ''}</div>
-                        </div>
-                        <div>
-                            <div style="font-weight: 600;">🌤️ 사용 시기:</div>
-                            <div>${info.seasons.join(', ')}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            details.innerHTML = html;
-            details.style.display = 'block';
-        }
 
                 function renderSupplies() {
             const tbody = document.getElementById('supplies-tbody');
@@ -2707,17 +2681,7 @@
         }
         
         // 비료 memo 저장장
-        function saveSupplyMemo(supplyId, supplyName) {
-            const supply = APP.data.supplies?.find(s => s[0] === supplyId);
-            if (!supply) return;
-            
-            const memoText = document.getElementById('supply-memo-input')?.value || '';
-            supply[10] = memoText;  // supplies[10] = memo
-            
-            _gasPost('updateSupply', {id: supplyId, memo: memoText}, true);
-            alert(`"${supplyName}"의 사용 방법이 저장되었습니다!`);
-            renderSupplies();
-        }
+
         
         // 보유비료 사용방법 자동 채우기
         function fillSuppliesMemo() {
@@ -4045,9 +4009,6 @@
         }
 
 
-
-
-
         // ✅ 그룹 토글
         function toggleCropGroup(headerEl) {
             const itemsEl = headerEl.nextElementSibling;
@@ -4503,45 +4464,9 @@
         
         // 모달 안에서 쓰는 삭제 (목록의 deletePesticide(idx,name) 와 이름이 겹쳐
         // 나중 정의가 이기면서 목록 삭제가 망가졌다. 이름을 나눈다.
-        async function deletePesticideById(id) {
-          if (!confirm('정말 삭제하시겠습니까?')) return;
+
         
-          try {
-            _pestStatus('🗑️ 삭제 중...');
-            await sendToSheet('delete', { id: id });
-            _pestToast('✅ 삭제되었습니다.');
-            reloadFromSheets(true);
-          } catch (err) {
-            console.error('❌ 삭제 에러:', err);
-            alert('삭제 실패: ' + err.message);
-            _pestStatus('❌ 삭제 실패');
-          }
-        }
-        
-        function viewPesticide(id) {
-          const item = _pestRows().find(p => String(p.id) === String(id));
-          if (!item) return;
-        
-          editingId = item.id;
-          isViewMode = true;
-          
-          document.getElementById('modal-title').textContent = '👁️ 농약 상세 조회';
-          document.getElementById('form-name').value = item.name || '';
-          document.getElementById('form-type').value = normalizeType(item.type || '');
-          document.getElementById('form-quantity').value = item.quantity || 1;
-          document.getElementById('form-unit').value = item.unit || '개';
-          document.getElementById('form-ingredient').value = item.ingredient || '';
-          document.getElementById('form-manufacturer').value = item.manufacturer || '';
-          document.getElementById('form-memo').value = item.memo || '';
-        
-          setFieldsDisabled(true);
-          document.getElementById('save-btn').textContent = '편집';
-          document.getElementById('psis-btn').style.display = 'none';
-          document.getElementById('psis-results-container').style.display = 'none';
-          
-          document.getElementById('pest-modal').style.display='flex';
-          document.body.style.overflow='hidden';   // 뒷배경 스크롤 잠금
-        }
+
         
         function psisFindList(node, depth) {
           depth = depth || 0;
@@ -5374,6 +5299,8 @@
                 // 괄호 안의 상세를 읽는다
                 var body = seg.slice(seg.indexOf('(') + 1);
                 var dil   = (body.match(/(\d+)\s*배/) || [])[1];
+                // 「300㎖/10a」 처럼 살포량으로 적힌 것 (제초제에 흔합니다)
+                var vol   = (body.match(/(\d[\d,]*(?:\.\d+)?)\s*(㎖|ml|mL|㏄|L|ℓ|g|㎏|kg)\s*\/\s*(10a|㎡|주|평)/i) || []);
                 var days  = (body.match(/수확\s*(\d+)\s*일\s*전/) || [])[1];
                 var times = (body.match(/,\s*(\d+)\s*회/) || body.match(/(\d+)\s*회/) || [])[1];
                 var dis   = (body.split(',')[0] || '').trim();
@@ -5381,6 +5308,7 @@
                 return {
                     crop: m[1].trim(),
                     disease: dis,
+                    vol:   vol[1] ? vol[1].replace(/,/g,'') + vol[2] + '/' + vol[3] : null,
                     dil:   dil   ? parseInt(dil, 10)   : null,
                     days:  days  ? parseInt(days, 10)  : null,
                     times: times ? parseInt(times, 10) : null,
@@ -5428,12 +5356,128 @@
             return { count: n, last: last };
         }
 
+        // ══ 제초제 안전 안내 ══════════════════════════════
+        //   비선택성 제초제는 잎에 닿으면 작물도 죽습니다.
+        //   등록 작물 목록은 「그 밭 바닥의 잡초에 쓸 수 있다」 는 뜻입니다.
+
+        // 이 농약이 제초제인가 — 어떤 종류인가
+        function _herbicideKind(pesticide){
+            if(!pesticide) return null;
+            var type = String(pesticide[2] || '');
+            var memo = String(pesticide[12] || '');
+            var all  = type + ' ' + memo;
+
+            if(!/제초|잡초/.test(all)) return null;
+
+            // 비선택성 — 무엇이든 죽인다
+            if(/비선택성/.test(all)) return 'non';
+            // 일년생·다년생을 모두 잡으면 대개 비선택성이다
+            if(/일년생잡초\s*및\s*다년생잡초/.test(all)) return 'non';
+            // 잔디밭 등에 쓰는 선택성
+            if(/선택성/.test(all)) return 'sel';
+            return 'etc';
+        }
+
+        // 경고와 사용법을 담은 상자
+        function herbicideWarnHtml(pesticide){
+            var kind = _herbicideKind(pesticide);
+            if(!kind) return '';
+
+            var name = String(pesticide[1] || '제초제');
+
+            if(kind === 'non'){
+                return '<div style="background:#FFEBEE;border:1.5px solid #EF9A9A;'
+                     + 'border-radius:8px;padding:10px 12px;margin-top:8px">'
+                     + '<div style="font-weight:700;color:#C62828;font-size:13px;margin-bottom:5px">'
+                     + '🚫 비선택성 제초제 — 잎에 닿으면 작물도 죽습니다</div>'
+                     + '<div style="font-size:11.5px;color:#5D4037;line-height:1.8">'
+                     + '적용 작물 목록은 <b>「그 밭 바닥의 잡초에 쓸 수 있다」</b>는 뜻입니다.<br>'
+                     + '나무나 작물에 직접 뿌리는 것이 아닙니다.'
+                     + '</div>'
+
+                     + '<div style="font-weight:700;color:#33691E;font-size:12px;'
+                     + 'margin:9px 0 4px">✅ 이렇게 쓰세요</div>'
+                     + '<div style="font-size:11.5px;color:#424242;line-height:1.9">'
+                     + '· 바닥 잡초에만 <b>낮게</b> 뿌립니다<br>'
+                     + '· 분무기 끝에 <b>덮개(갓)</b>를 씌우면 안전합니다<br>'
+                     + '· <b>바람 없는 날</b> 아침이나 저녁에<br>'
+                     + '· 잡초가 <b>15~30cm</b> 자랐을 때 가장 잘 듣습니다<br>'
+                     + '· 뿌린 뒤 <b>6시간</b> 안에 비가 오면 다시 해야 합니다'
+                     + '</div>'
+
+                     + '<div style="font-weight:700;color:#C62828;font-size:12px;'
+                     + 'margin:9px 0 4px">⚠️ 특히 조심할 것</div>'
+                     + '<div style="font-size:11.5px;color:#424242;line-height:1.9">'
+                     + '· <b>어린 나무</b>는 수피가 얇아 줄기에 닿아도 흡수됩니다<br>'
+                     + '· <b>덩굴·낮은 작물</b>(다래·으름·복분자·딸기)은 바닥에 가까워 위험합니다<br>'
+                     + '· 뿌리가 얕은 나무는 <b>줄기 둘레 50cm</b>를 비워두세요<br>'
+                     + '· 새순·움돋이에 닿으면 나무 전체가 상할 수 있습니다'
+                     + '</div>'
+                     + '</div>';
+            }
+
+            if(kind === 'sel'){
+                return '<div style="background:#FFF8E1;border:1.5px solid #FFCC80;'
+                     + 'border-radius:8px;padding:10px 12px;margin-top:8px">'
+                     + '<div style="font-weight:700;color:#E65100;font-size:13px;margin-bottom:5px">'
+                     + '⚠️ 선택성 제초제</div>'
+                     + '<div style="font-size:11.5px;color:#424242;line-height:1.9">'
+                     + '· 등록된 작물에서만 쓰세요 — 다른 작물에는 해가 됩니다<br>'
+                     + '· 바람 없는 날, 이웃 밭으로 날아가지 않게<br>'
+                     + '· 뿌린 뒤 6시간 안에 비가 오면 다시 해야 합니다'
+                     + '</div></div>';
+            }
+
+            return '<div style="background:#FFF8E1;border-radius:8px;padding:9px 11px;'
+                 + 'margin-top:8px;font-size:11.5px;color:#795548;line-height:1.8">'
+                 + '⚠️ <b>제초제</b>입니다. 작물에 닿지 않게 바닥 잡초에만 뿌리세요.</div>';
+        }
+
+        // 제초제 안내를 크게 보여준다
+        function showHerbicideInfo(id){
+            var p = (APP.data.myPesticides || []).find(function(r){
+                return r && String(r[0]) === String(id); });
+            if(!p) return;
+
+            var ex = document.getElementById('herb-info'); if(ex) ex.remove();
+            var box = document.createElement('div');
+            box.id = 'herb-info';
+            box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10001;'
+              + 'display:flex;align-items:center;justify-content:center;padding:14px';
+            box.onclick = function(e){ if(e.target === box) box.remove(); };
+
+            box.innerHTML =
+              '<div style="background:#fff;border-radius:12px;width:100%;max-width:400px;'
+            + 'max-height:88vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.3)">'
+            + '<div style="background:#C62828;color:#fff;padding:12px 15px;font-weight:700;'
+            + 'font-size:15px;display:flex;justify-content:space-between;align-items:center">'
+            + '<span>🚫 ' + (p[1] || '') + '</span>'
+            + '<span onclick="document.getElementById(\'herb-info\').remove()"'
+            + ' style="cursor:pointer;font-size:22px;line-height:1">&times;</span></div>'
+            + '<div style="padding:14px">' + herbicideWarnHtml(p) + '</div></div>';
+
+            document.body.appendChild(box);
+        }
+
         // 병해충 이름으로 검색 — NCPMS 와 네이버 둘 다
         //   NCPMS 는 사진이 없는 병해충이 많아 네이버도 함께 엽니다
         function searchPest(name, crop){
             var q = String(name || '').trim();
-            if(!q) return;
+            if(!q){ console.warn('🔍 병해충 이름이 비었습니다'); return; }
             var full = (crop ? String(crop).replace(/\([^)]*\)/g,'').trim() + ' ' : '') + q;
+
+            // 어떤 주소로 여는지 콘솔에 남긴다
+            var _urls = {
+                'NCPMS':      'https://ncpms.rda.go.kr/npms/TotalSearchR.np?searchWord='
+                              + encodeURIComponent(full)
+                              + '&categoryName=ALL&itemCnt=10&itemSort=relevance&dtlSearchYn=N&mode=s',
+                '네이버':      'https://search.naver.com/search.naver?query=' + encodeURIComponent(full + ' 병해충'),
+                '네이버 이미지': 'https://search.naver.com/search.naver?where=image&query=' + encodeURIComponent(full)
+            };
+            console.log('🔍 병해충 검색:', q, crop ? '(' + crop + ')' : '');
+            Object.keys(_urls).forEach(function(k){
+                console.log('   ' + k.padEnd(8) + ' → ' + decodeURIComponent(_urls[k]));
+            });
 
             var ex = document.getElementById('pest-search'); if(ex) ex.remove();
             var box = document.createElement('div');
@@ -5448,19 +5492,37 @@
             + '<div style="background:#5D4037;color:#fff;padding:12px 15px;font-weight:700;'
             + 'font-size:15px">🔍 ' + q + '</div>'
             + '<div style="padding:14px">'
-            + '<div style="font-size:12px;color:#666;margin-bottom:11px">'
+            + '<div style="font-size:12px;color:#666;margin-bottom:8px">'
             + '어디서 찾아볼까요?</div>'
 
-            + '<a href="https://ncpms.rda.go.kr/npmsAPI/search?searchWord='
-            + encodeURIComponent(q) + '" target="_blank" rel="noopener"'
+            // 검색어를 고칠 수 있게 — PSIS 와 NCPMS 의 병해 이름이 다를 때가 있다
+            + '<div style="display:flex;gap:6px;margin-bottom:11px">'
+            + '<input id="pest-q" value="' + q.replace(/"/g,'&quot;') + '"'
+            + ' style="flex:1;padding:8px 10px;border:1.5px solid #E0E0E0;border-radius:7px;'
+            + 'font-size:14px;font-family:inherit">'
+            + '<button onclick="searchPest(document.getElementById(\'pest-q\').value,'
+            + '\'' + String(crop || '').replace(/'/g,'') + '\')"'
+            + ' style="flex:0 0 auto;padding:8px 12px;background:#5D4037;color:#fff;'
+            + 'border:none;border-radius:7px;cursor:pointer;font-size:13px;'
+            + 'font-family:inherit">바꿔 찾기</button></div>'
+            + '<div style="font-size:10.5px;color:#9E9E9E;margin-bottom:10px;line-height:1.6">'
+            + '작물명을 함께 넣어 찾습니다 — <b>' + full + '</b><br>'
+            + '결과가 없으면 병 이름을 바꿔 보세요 (예: 검은무늬병 · 검은별무늬병)</div>'
+
+            + '<a href="https://ncpms.rda.go.kr/npms/TotalSearchR.np?searchWord='
+            + encodeURIComponent(full)
+            + '&categoryName=ALL&itemCnt=10&itemSort=relevance&dtlSearchYn=N&mode=s"'
+            + ' target="_blank" rel="noopener"'
+            + ' onclick="console.log(\'🏛 NCPMS 열기: ' + q + '\')"'
             + ' style="display:block;background:#2E7D32;color:#fff;padding:12px 14px;'
             + 'border-radius:8px;text-decoration:none;margin-bottom:7px">'
             + '<div style="font-weight:700;font-size:14px">🏛 국가농작물병해충관리시스템</div>'
             + '<div style="font-size:11px;opacity:.85;margin-top:2px">'
-            + '농촌진흥청 · 정확한 진단과 방제 방법</div></a>'
+            + '농촌진흥청 · 도감 · 사진 · 적용 농약</div></a>'
 
             + '<a href="https://search.naver.com/search.naver?query='
             + encodeURIComponent(full + ' 병해충') + '" target="_blank" rel="noopener"'
+            + ' onclick="console.log(\'🟢 네이버 열기: ' + full + ' 병해충\')"'
             + ' style="display:block;background:#03C75A;color:#fff;padding:12px 14px;'
             + 'border-radius:8px;text-decoration:none;margin-bottom:7px">'
             + '<div style="font-weight:700;font-size:14px">🟢 네이버 검색</div>'
@@ -5469,6 +5531,7 @@
 
             + '<a href="https://search.naver.com/search.naver?where=image&query='
             + encodeURIComponent(full) + '" target="_blank" rel="noopener"'
+            + ' onclick="console.log(\'📷 네이버 이미지 열기: ' + full + '\')"'
             + ' style="display:block;background:#E8F5E9;color:#1B5E20;padding:12px 14px;'
             + 'border-radius:8px;text-decoration:none;margin-bottom:7px;'
             + 'border:1px solid #A5D6A7">'
@@ -5544,44 +5607,7 @@
         }
 
         // 안전사용 안내를 한 줄로
-        function safeUseHtml(pesticide, cropName){
-            var rule = _safeRuleOf(pesticide, cropName);
-            if(!rule) return '';
 
-            var used = _sprayCount(pesticide[1], cropName);
-            var bits = [];
-
-            if(rule.dil) bits.push('<b>' + rule.dil + '배</b> 희석');
-
-            if(rule.times){
-                var left = rule.times - used.count;
-                var col = left <= 0 ? '#C62828' : left === 1 ? '#E65100' : '#2E7D32';
-                bits.push('<span style="color:' + col + '"><b>' + used.count + '/' + rule.times
-                        + '회</b>' + (left <= 0 ? ' 초과!' : ' (남은 ' + left + '회)') + '</span>');
-            }
-
-            if(rule.days){
-                bits.push('수확 <b>' + rule.days + '일 전</b>까지');
-            }
-
-            var warn = '';
-            if(rule.times && used.count >= rule.times){
-                warn = '<div style="background:#FFEBEE;color:#C62828;border-radius:6px;'
-                     + 'padding:5px 8px;margin-top:4px;font-size:11px">'
-                     + '🚫 올해 살포 횟수를 다 썼습니다. 더 뿌리면 안 됩니다.</div>';
-            } else if(rule.days && used.last){
-                // 마지막 살포일 + 안전일수
-                var d = new Date(used.last.slice(0,4), +used.last.slice(5,7)-1, +used.last.slice(8,10));
-                d.setDate(d.getDate() + rule.days);
-                warn = '<div style="font-size:11px;color:#666;margin-top:3px">'
-                     + '마지막 살포 ' + used.last + ' → <b>'
-                     + (d.getMonth()+1) + '/' + d.getDate() + '</b> 이후 수확</div>';
-            }
-
-            return '<div style="background:#FFF8E1;border-radius:7px;padding:7px 9px;'
-                 + 'margin-top:5px;font-size:12px;color:#795548">'
-                 + '⚠️ <b>안전사용기준</b> · ' + bits.join(' · ') + warn + '</div>';
-        }
 
         // ══ 주말농부 — 이틀에 6시간으로 줄인 계획 ══════════
         var _weekMode = 'all';
@@ -7113,42 +7139,11 @@
         ];
 
         // 성분량(g) → 그 성분을 채우는 비료의 양(g)
-        function _needOf(gram, pct){
-            if(!gram || !pct) return 0;
-            return Math.round(gram / (pct / 100));
-        }
+
 
         // 보유 비료 중 이 시비에 쓸 만한 것을 고른다
         //   질소가 든 것 · 인산이 든 것 · 칼리가 든 것을 각각 찾는다
-        function _pickOwned(needN, needP, needK){
-            var owned = [];
-            (APP.data.supplies || []).forEach(function(r){
-                if(!r) return;
-                if(typeof _isFinished === 'function' && _isFinished(r)) return;
-                var nm = String(r[7] || '').trim();
-                if(!nm) return;
-                var npk = _npkOf(r[4]) || _npkOf(r[10]);
-                if(!npk) return;
-                owned.push({ name: nm, npk: npk, qty: r[9] || '' });
-            });
-            if(!owned.length) return [];
 
-            var out = [];
-            // 질소 기준으로 가장 알맞은 것 (질소가 있고, 인산·칼리 비율이 가까운 것)
-            if(needN){
-                var best = null, gap = 1e9;
-                owned.forEach(function(o){
-                    if(!o.npk.n) return;
-                    var amt = needN / (o.npk.n / 100);          // 이 비료를 몇 g 줘야 하나
-                    var gotP = amt * o.npk.p / 100;
-                    var gotK = amt * o.npk.k / 100;
-                    var d = Math.abs(gotP - needP) + Math.abs(gotK - needK);
-                    if(d < gap){ gap = d; best = { o: o, amt: amt, gotP: gotP, gotK: gotK }; }
-                });
-                if(best) out.push(best);
-            }
-            return out;
-        }
 
         // 이 작물의 시비 시기를 찾는다 (cropFertTime)
         function _fertTimeOf(cropName){
@@ -7739,13 +7734,7 @@
         }
 
 // 입력 중인 내용이 있으면 확인을 받는다
-        function supTryClose(){
-            var form = document.getElementById('sup-step-form');
-            var typing = form && form.style.display === 'block'
-                       && (document.getElementById('sup-name').value || '').trim();
-            if(typing && !confirm('입력하던 내용이 사라집니다. 닫을까요?')) return;
-            closeSupplyScan();
-        }
+
 
         function closeSupplyScan(){
             supStopCamera();
@@ -7958,32 +7947,6 @@
         //   iframe 은 카메라(getUserMedia)가 막혀 스캔이 안 되므로 새 창을 쓴다.
         var _scanWin = null, _scanWatch = null;
 
-        function openScanApp(kind){
-            var url = 'index5.html';
-            try { _scanWin = window.open(url, 'orchard_scan'); } catch(e){ _scanWin = null; }
-
-            if(!_scanWin){
-                alert('새 창이 차단되었습니다.\n주소창의 팝업 차단을 해제하거나\n'
-                    + 'index5.html 을 직접 열어주세요.');
-                return;
-            }
-            try { _scanWin.focus(); } catch(e){}
-
-            // 창이 닫히면 자동으로 새로고침한다
-            if(_scanWatch) clearInterval(_scanWatch);
-            _scanWatch = setInterval(function(){
-                var closed = false;
-                try { closed = _scanWin.closed; } catch(e){ closed = false; }
-                if(closed){
-                    clearInterval(_scanWatch); _scanWatch = null;
-                    console.log('📷 농약장 창이 닫혔습니다 — 데이터를 다시 불러옵니다');
-                    reloadFromSheets(true);
-                }
-            }, 1200);
-
-            // 이 창으로 돌아왔을 때도 한 번 갱신한다 (창을 닫지 않고 전환한 경우)
-            _armFocusReload();
-        }
 
         var _focusArmed = false;
         function _armFocusReload(){
@@ -8154,17 +8117,6 @@
             }
         }
 
-        function loadRecordsFromStorage() {
-            try {
-                const stored = localStorage.getItem(STORAGE_KEY);
-                if (!stored) return;
-                const data = JSON.parse(stored);
-                APP.data.growRecords = data.records || [];
-                console.log('📥 복구:', APP.data.growRecords.length + '개');
-            } catch (error) {
-                console.error('❌ 복구 오류:', error);
-            }
-        }
 
         // ✅ 저장소 정보
         function updateStorageInfo() {
@@ -8274,80 +8226,7 @@
         };
 
         // ✅ 비료 정보 조회 함수
-        function showFertilizerInfo(fertilizerName) {
-            const info = FERTILIZER_INFO[fertilizerName];
-            
-            if (!info) {
-                alert('❌ ' + fertilizerName + '에 대한 정보가 없습니다.\n\n등록된 비료:\n- 슈퍼복합비료\n- 유황\n- 요소');
-                return;
-            }
 
-            let content = `
-📋 ${info.name} 상세 정보
-
-━━━━━━━━━━━━━━━━━━━━━━━━━
-🏷️ 분류: ${info.type}
-성분: ${info.npk}
-단위: ${info.unit}
-━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📝 설명:
-${info.description}
-
-🌟 특징:
-${info.features.map(f => f).join('\n')}
-
-`;
-
-            if (info.baseFertilizer) {
-                content += `
-💡 기본 기저비료 사용법:
-━━━━━━━━━━━━━━━━━━━━━━━━━
-⏰ 시기: ${info.baseFertilizer.timing}
-📊 용량: ${info.baseFertilizer.dosage}
-🔨 방법: ${info.baseFertilizer.method}
-⏳ 이후: ${info.baseFertilizer.afterDays}
-`;
-            }
-
-            if (info.topDressing) {
-                content += `
-🌱 추가 시비(웃거름) 방법:
-━━━━━━━━━━━━━━━━━━━━━━━━━
-1️⃣ 첫 시비: ${info.topDressing.firstTiming}
-2️⃣ 반복: ${info.topDressing.frequency}
-3️⃣ 용량: ${info.topDressing.dosage}
-4️⃣ 주의: ${info.topDressing.afterWatering}
-`;
-            }
-
-            if (info.usage) {
-                content += `
-💧 사용 방법:
-━━━━━━━━━━━━━━━━━━━━━━━━━
-${info.usage}
-${info.dilution ? '농도: ' + info.dilution : ''}
-`;
-            }
-
-            content += `
-🌾 사용 가능 작물:
-━━━━━━━━━━━━━━━━━━━━━━━━━
-${info.crops.join(', ')}
-
-🌤️ 사용 시기:
-${info.seasons.join(', ')}
-
-💾 보관 방법:
-${info.storageMethod}
-
-📅 유효기간:
-${info.shelfLife}
-`;
-
-            // 모달 또는 alert로 표시
-            alert(content);
-        }
 
                 function render() {
             renderWeekly();
