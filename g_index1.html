@@ -53,10 +53,22 @@
         }
         .font-btn:active { transform: scale(.94); }
 
-        /* 글자 크기 단계 — 본문 글씨만 키운다 */
-        body.fs-1 { font-size: 108%; }
-        body.fs-2 { font-size: 118%; }
-        body.fs-3 { font-size: 130%; }
+        /* 글자 크기 단계
+           본문 글씨가 px 로 박혀 있어 body 크기로는 안 커집니다.
+           zoom 으로 화면 전체를 키웁니다 — 가로폭은 그대로라 좌우로 밀 필요가 없습니다. */
+        body.fs-1 .container, body.fs-1 .tabs,
+        body.fs-1 #main-header .date-info { zoom: 1.10; }
+
+        body.fs-2 .container, body.fs-2 .tabs,
+        body.fs-2 #main-header .date-info { zoom: 1.22; }
+
+        body.fs-3 .container, body.fs-3 .tabs,
+        body.fs-3 #main-header .date-info { zoom: 1.38; }
+
+        /* 창(모달) 안도 함께 */
+        body.fs-1 .modal-box, body.fs-1 [id$="-modal"] > div { zoom: 1.10; }
+        body.fs-2 .modal-box, body.fs-2 [id$="-modal"] > div { zoom: 1.22; }
+        body.fs-3 .modal-box, body.fs-3 [id$="-modal"] > div { zoom: 1.38; }
 
         /* 손가락으로 확대할 수 있게 */
         html, body {
@@ -1123,6 +1135,7 @@
                 </div>
 
                 <div id="week-weather"></div>
+                <div id="week-harvest"></div>
                 <div id="weekend-plan"></div>
                 <div id="week-fert"></div>
                 <div id="weekly-prep-list"></div>
@@ -1251,7 +1264,7 @@
                                 <tr>
                                     <th>작물명</th>
                                     <th>품종</th>
-                                    <th>파종일</th>
+                                    <th>파종일 · 수확</th>
                                     <th style="width:40%">작업</th>
                                 </tr>
                             </thead>
@@ -1272,7 +1285,7 @@
                                 <tr>
                                     <th>작물명</th>
                                     <th>품종</th>
-                                    <th>파종일</th>
+                                    <th>파종일 · 수확</th>
                                     <th style="width:40%">작업</th>
                                 </tr>
                             </thead>
@@ -1291,8 +1304,12 @@
                 <div class="section-title">
                     <span class="emoji">📋</span>
                     <span>기록 일지</span>
+                    <button onclick="showGrowPeriod()"
+                        style="margin-left:auto;margin-right:6px;padding:8px 13px;background:#5D4037;
+                        color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;
+                        font-weight:600;font-family:inherit">📊 재배기간</button>
                     <button onclick="openRecModal()"
-                        style="margin-left:auto;margin-right:6px;padding:8px 13px;background:#1B5E20;
+                        style="margin-right:6px;padding:8px 13px;background:#1B5E20;
                         color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;
                         font-weight:600;font-family:inherit">➕ 추가</button>
                     <button onclick="reloadFromSheets()"
@@ -1359,33 +1376,20 @@
 
             </div>
 
-            <!-- 🏡 우리 밭 -->
-            <div id="about" class="tab-content">
-                <div class="section-title">
-                    <span class="emoji">🏡</span>
-                    <span>우리 밭 이야기</span>
-                </div>
+                <!-- 자료 갱신 -->
+                <div class="section-title" style="font-size:15px;margin-top:18px">
+                    <span class="emoji">🔄</span><span>자료 갱신</span></div>
 
-                <div style="background:#F1F8E9;border:1.5px solid #C5E1A5;border-radius:10px;
-                     padding:14px 16px;margin-bottom:14px">
-                    <div style="font-weight:700;color:#33691E;font-size:15px;margin-bottom:8px">
-                        🌳 새솔동 과수원</div>
-                    <div style="font-size:13px;color:#424242;line-height:1.8">
-                        경기도 화성시 만세구 새솔동에 있는 학교 과수원입니다.<br>
-                        <b>100여 종</b>의 과수와 채소를 다섯 구역에 나누어 기르고 있습니다.
-                    </div>
-                    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">
-                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
-                              padding:3px 10px;font-size:12px;color:#33691E">1구역 · 22m</span>
-                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
-                              padding:3px 10px;font-size:12px;color:#33691E">사이구역 · 20m</span>
-                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
-                              padding:3px 10px;font-size:12px;color:#33691E">2구역 · 16~20m</span>
-                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
-                              padding:3px 10px;font-size:12px;color:#33691E">하우스 · 10m</span>
-                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
-                              padding:3px 10px;font-size:12px;color:#33691E">하우스 앞 · 15m</span>
-                    </div>
+                <div style="background:#FFF8E1;border-radius:9px;padding:12px 14px;
+                     font-size:12px;color:#795548;line-height:1.7">
+                    작물코드와 시비량은 <b>공공기관 자료</b>라 가끔 늘어납니다.<br>
+                    새 작물을 심으셨거나 한참 만에 여실 때 눌러주세요.
+                    <button onclick="updateSheets()" id="upd-btn"
+                        style="display:block;width:100%;margin-top:10px;padding:11px;
+                        background:#5D4037;color:#fff;border:none;border-radius:8px;
+                        cursor:pointer;font-size:14px;font-weight:700;font-family:inherit">
+                        🔄 시트 자료 갱신하기</button>
+                    <div id="upd-result" style="margin-top:9px"></div>
                 </div>
 
                 <!-- 밭 사진 -->
@@ -1419,6 +1423,35 @@
                     <span class="emoji">📱</span><span>이 앱이 하는 일</span></div>
 
                 <div id="about-features"></div>
+
+            <!-- 🏡 우리 밭&최신작물목록읽기 -->
+            <div id="about" class="tab-content">
+                <div class="section-title">
+                    <span class="emoji">🏡</span>
+                    <span>우리 밭 이야기</span>
+                </div>
+
+                <div style="background:#F1F8E9;border:1.5px solid #C5E1A5;border-radius:10px;
+                     padding:14px 16px;margin-bottom:14px">
+                    <div style="font-weight:700;color:#33691E;font-size:15px;margin-bottom:8px">
+                        🌳 새솔동 과수원</div>
+                    <div style="font-size:13px;color:#424242;line-height:1.8">
+                        경기도 화성시 만세구 새솔동에 있는 학교 과수원입니다.<br>
+                        <b>100여 종</b>의 과수와 채소를 다섯 구역에 나누어 기르고 있습니다.
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">
+                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
+                              padding:3px 10px;font-size:12px;color:#33691E">1구역 · 22m</span>
+                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
+                              padding:3px 10px;font-size:12px;color:#33691E">사이구역 · 20m</span>
+                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
+                              padding:3px 10px;font-size:12px;color:#33691E">2구역 · 16~20m</span>
+                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
+                              padding:3px 10px;font-size:12px;color:#33691E">하우스 · 10m</span>
+                        <span style="background:#fff;border:1px solid #C5E1A5;border-radius:12px;
+                              padding:3px 10px;font-size:12px;color:#33691E">하우스 앞 · 15m</span>
+                    </div>
+                </div>
 
                 <!-- 자료 출처 -->
                 <div class="section-title" style="font-size:15px;margin-top:18px">
@@ -1489,22 +1522,6 @@
                                style="font-size:11px;color:#1565C0">data.go.kr</a>
                         </div>
                     </div>
-                </div>
-
-                <!-- 최신작물목록읽기 -->
-                <div class="section-title" style="font-size:15px;margin-top:18px">
-                    <span class="emoji">🔄</span><span>최신작물목록읽기</span></div>
-
-                <div style="background:#FFF8E1;border-radius:9px;padding:12px 14px;
-                     font-size:12px;color:#795548;line-height:1.7">
-                    작물코드와 시비량은 <b>공공기관 자료</b>라 가끔 늘어납니다.<br>
-                    새 작물을 심으셨거나 한참 만에 여실 때 눌러주세요.
-                    <button onclick="updateSheets()" id="upd-btn"
-                        style="display:block;width:100%;margin-top:10px;padding:11px;
-                        background:#5D4037;color:#fff;border:none;border-radius:8px;
-                        cursor:pointer;font-size:14px;font-weight:700;font-family:inherit">
-                        🔄 최신작물목록읽기</button>
-                    <div id="upd-result" style="margin-top:9px"></div>
                 </div>
 
                 <div style="background:#F5F5F5;border-radius:9px;padding:11px 14px;
@@ -2440,6 +2457,7 @@
             console.log('✅ renderWeekly 완료!');
             // async 함수라 catch 로는 못 잡는다 — Promise 로 받는다
             try { applyFontSize(); } catch(e){}
+            try { renderHarvestSoon(); } catch(e){ console.warn('수확 예정:', e.message); }
             Promise.resolve()
                 .then(function(){ return renderWeather(); })
                 .catch(function(e){ console.warn('🌤 날씨 그리기 실패:', e && e.message, e); });
@@ -3009,7 +3027,10 @@
                     return `<tr>
                         <td>${r[1]||'-'}</td>
                         <td><input type="text" value="${r[4]||''}" id="variety-${r[0]}" style="width: 95%; padding: 4px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;"></td>
-                        <td>${formatDate(r[2])}</td>
+                        <td>${formatDate(r[2])}${(function(){
+                            try { var h = harvestBadge(r[1]); return h ? '<br>' + h : ''; }
+                            catch(e){ return ''; }
+                        })()}</td>
                         
                         <td style="white-space:nowrap">
                             <select onchange="changePlantType('${r[0]}', '${r[1]}', this.value)" style="padding: 4px; border: 1px solid #ddd; border-radius: 3px; font-size: 11px;">
@@ -3035,7 +3056,10 @@
                     return `<tr>
                         <td>${r[1]||'-'}</td>
                         <td><input type="text" value="${r[4]||''}" id="variety-${r[0]}" style="width: 95%; padding: 4px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;"></td>
-                        <td>${formatDate(r[2])}</td>
+                        <td>${formatDate(r[2])}${(function(){
+                            try { var h = harvestBadge(r[1]); return h ? '<br>' + h : ''; }
+                            catch(e){ return ''; }
+                        })()}</td>
                         
                         <td style="white-space:nowrap">
                             <select onchange="changePlantType('${r[0]}', '${r[1]}', this.value)" style="padding: 4px; border: 1px solid #ddd; border-radius: 3px; font-size: 11px;">
@@ -4248,13 +4272,31 @@
                 isNew ? ['addGrowRecord', 'create', 'add']
                       : ['updateGrowRecord', 'update', 'updateRow'],
                 { sheetName: 'growRecords', sheet: 'growRecords', collectionName: 'growRecords',
-                  id: newId, plantName: crop, date: date, type: type, note: note });
+                  id: newId, plantName: crop, date: date,
+                  // growRecords 시트는 eventType 열을 씁니다 (type 열도 따로 있어 둘 다 보냅니다)
+                  eventType: type, type: type,
+                  note: note });
 
             if (r.ok) {
                 console.log((isNew ? '➕ 시트에 추가 완료: ' : '✏️ 시트에도 수정 완료: ') + newId);
-                // 시트를 다시 읽어 화면과 시트를 맞춘다
-                // (화면에만 넣어두면 새로고침 때 중복되거나 사라져 보인다)
-                await reloadFromSheets(true);
+                console.log('   보낸 값 · 작업종류:', type, '· 작물:', crop);
+
+                // 기록일지만 다시 읽는다 — 전체를 읽지 않아 빠릅니다
+                await reloadRecords();
+
+                // 시트에서 실제로 무엇이 왔는지 확인한다
+                var _after = (APP.data.growRecords || []).find(function(r){
+                    return r && String(r[0]) === String(newId); });
+                if(_after){
+                    console.log('   시트 값 · 작업종류:', _after[3], '· 작물:', _after[1]);
+                    if(String(_after[3]) !== String(type)){
+                        console.warn('⚠️ 보낸 값과 시트 값이 다릅니다 —',
+                                     '보냄:', type, '/ 시트:', _after[3]);
+                    }
+                } else {
+                    console.warn('⚠️ 시트에서 id', newId, '를 찾지 못했습니다');
+                }
+
                 _pestToast(isNew ? '✅ 기록이 추가되었습니다' : '✅ 수정되었습니다');
             } else {
                 alert('화면에서는 바뀌었지만 구글 시트 반영에 실패했습니다.\n' +
@@ -6450,6 +6492,476 @@
                 btn.disabled = false;
                 btn.textContent = '🔄 시트 자료 갱신하기';
             }
+        }
+
+        // 재배 기간을 창으로 보여준다
+        function showGrowPeriod(){
+            var list = analyzeGrowPeriod();
+            var sum  = growPeriodSummary();
+
+            var ex = document.getElementById('period-modal'); if(ex) ex.remove();
+            var box = document.createElement('div');
+            box.id = 'period-modal';
+            box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10001;'
+              + 'display:flex;align-items:center;justify-content:center;padding:14px';
+            box.onclick = function(e){ if(e.target === box) box.remove(); };
+
+            var fd = function(d){
+                return d ? (d.getMonth()+1) + '/' + d.getDate() : '-';
+            };
+
+            var html =
+              '<div style="background:#fff;border-radius:12px;width:100%;max-width:430px;'
+            + 'max-height:88vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.3)">'
+            + '<div style="background:#5D4037;color:#fff;padding:12px 15px;font-weight:700;'
+            + 'font-size:15px;display:flex;justify-content:space-between;align-items:center;'
+            + 'position:sticky;top:0">'
+            + '<span>📊 재배 기간</span>'
+            + '<span onclick="document.getElementById(\'period-modal\').remove()"'
+            + ' style="cursor:pointer;font-size:22px;line-height:1">&times;</span></div>'
+            + '<div style="padding:14px">';
+
+            // ① 거둔 것 — 며칠 걸렸나
+            var done = list.filter(function(x){ return x.days !== null; });
+            if(done.length){
+                html += '<div style="font-size:12px;font-weight:700;color:#33691E;'
+                      + 'margin-bottom:6px">🧺 거둔 작물 · ' + done.length + '건</div>';
+                done.forEach(function(x){
+                    var col = x.days < 60 ? '#2E7D32' : x.days < 120 ? '#F57C00' : '#5D4037';
+                    html += '<div style="background:#F1F8E9;border-radius:8px;padding:9px 11px;'
+                          + 'margin-bottom:5px">'
+                          + '<div style="display:flex;align-items:center;gap:6px">'
+                          + '<span style="flex:1;font-weight:700;color:#33691E;font-size:13px">'
+                          + x.crop + '</span>'
+                          + '<span style="font-size:16px;font-weight:700;color:' + col + '">'
+                          + x.days + '<span style="font-size:11px">일</span></span></div>'
+                          + '<div style="font-size:11px;color:#666;margin-top:2px">'
+                          + fd(x.sow) + ' 심음 → ' + fd(x.harvest) + ' 거둠'
+                          + (x.span ? ' <span style="color:#E65100">· ' + x.span
+                                    + '일간 수확</span>' : '')
+                          + ' <span style="color:#BDBDBD">· ' + x.year + '년</span></div>'
+                          + '</div>';
+                });
+            }
+
+            // ② 아직 기르는 중 — 며칠째인가
+            var now = new Date();
+            var growing = list.filter(function(x){ return x.growing; });
+            if(growing.length){
+                html += '<div style="font-size:12px;font-weight:700;color:#546E7A;'
+                      + 'margin:12px 0 6px">🌱 기르는 중 · ' + growing.length + '건</div>';
+                growing.slice(0, 25).forEach(function(x){
+                    var d = Math.round((now - x.sow) / 86400000);
+                    var e = expectHarvest(x.sow, x.crop);
+
+                    // 상태에 따라 색과 말이 달라진다
+                    var col = '#546E7A', tail = '', bg = '#FAFAFA';
+                    if(e){
+                        if(e.state === 'ready'){
+                            col = '#2E7D32'; bg = '#E8F5E9';
+                            tail = '<span style="color:#2E7D32;font-weight:700">🧺 거둘 때입니다</span>';
+                        } else if(e.state === 'soon'){
+                            col = '#F57C00'; bg = '#FFF8E1';
+                            tail = '<span style="color:#E65100">' + e.leftToStart + '일 뒤부터</span>';
+                        } else if(e.state === 'over'){
+                            col = '#C62828'; bg = '#FFEBEE';
+                            tail = '<span style="color:#C62828;font-weight:700">⚠️ 수확 때가 지났습니다</span>';
+                        } else {
+                            tail = '<span style="color:#9E9E9E">' + e.leftToStart + '일 남음</span>';
+                        }
+                    }
+
+                    // 지난해 기록이 있으면 그것을 먼저
+                    var ref = sum.find(function(s){ return s.base === x.base; });
+                    var basis = ref
+                        ? '지난 기록 ' + ref.avg + '일'
+                        : (e && e.std ? '표준 ' + (e.std.min || '?') + '~' + (e.std.max || '?') + '일' : '');
+
+                    html += '<div style="background:' + bg + ';border-radius:7px;'
+                          + 'padding:7px 10px;margin-bottom:4px">'
+                          + '<div style="display:flex;align-items:center;gap:7px;font-size:12px">'
+                          + '<span style="flex:1;font-weight:600;color:#424242">' + x.crop + '</span>'
+                          + '<span style="color:' + col + ';font-weight:700">' + d + '일째</span>'
+                          + '</div>'
+                          + (basis || tail
+                             ? '<div style="font-size:10.5px;margin-top:2px;color:#78909C">'
+                               + basis + (basis && tail ? ' · ' : '') + tail + '</div>' : '')
+                          + (e && e.from
+                             ? '<div style="font-size:10.5px;color:#9E9E9E;margin-top:1px">'
+                               + '예상 수확 ' + (e.from.getMonth()+1) + '/' + e.from.getDate()
+                               + (e.to ? ' ~ ' + (e.to.getMonth()+1) + '/' + e.to.getDate() : '')
+                               + (e.std.harvestTime ? ' · ' + e.std.harvestTime : '')
+                               + '</div>' : '')
+                          + '</div>';
+                });
+            }
+
+            // ③ 해마다 견주기 (같은 작물이 두 해 이상)
+            var multi = sum.filter(function(s){ return s.n >= 2; });
+            if(multi.length){
+                html += '<div style="font-size:12px;font-weight:700;color:#546E7A;'
+                      + 'margin:12px 0 6px">📈 해마다 견주기</div>';
+                multi.forEach(function(s){
+                    html += '<div style="background:#FFF8E1;border-radius:8px;padding:8px 11px;'
+                          + 'margin-bottom:5px;font-size:12px">'
+                          + '<b style="color:#33691E">' + s.base + '</b> · 평균 <b>'
+                          + s.avg + '일</b>'
+                          + ' <span style="color:#9E9E9E">(' + s.min + '~' + s.max + '일 · '
+                          + s.n + '회)</span></div>';
+                });
+            }
+
+            if(!done.length && !growing.length){
+                html += '<div style="text-align:center;color:#9E9E9E;font-size:13px;'
+                      + 'padding:30px 0">아직 헤아릴 기록이 없습니다<br>'
+                      + '<span style="font-size:11px">파종·정식과 수확을 기록하시면 나옵니다</span></div>';
+            }
+
+            html += '<div style="font-size:10.5px;color:#9E9E9E;margin-top:12px;'
+                  + 'padding-top:9px;border-top:1px solid #EEE;line-height:1.7">'
+                  + '파종·정식 날짜부터 첫 수확까지 헤아립니다.<br>'
+                  + '해가 쌓이면 이듬해 심을 때를 정하는 데 도움이 됩니다.</div>'
+                  + '</div></div>';
+
+            box.innerHTML = html;
+            document.body.appendChild(box);
+        }
+
+        // 작물 목록에 붙일 작은 수확 표시
+        function harvestBadge(cropName){
+            var list = (typeof analyzeGrowPeriod === 'function') ? analyzeGrowPeriod() : [];
+            var hit = list.find(function(x){
+                return x.crop === cropName && x.growing; });
+            if(!hit) return '';
+
+            var e = expectHarvest(hit.sow, cropName);
+            if(!e) return '';
+
+            var col, txt;
+            if(e.state === 'over'){
+                col = '#C62828'; txt = '⚠️ 수확 늦음';
+            } else if(e.state === 'ready'){
+                col = '#2E7D32'; txt = '🧺 거둘 때';
+            } else if(e.state === 'soon'){
+                col = '#F57C00'; txt = e.leftToStart + '일 뒤';
+            } else {
+                col = '#90A4AE'; txt = e.leftToStart + '일 남음';
+            }
+
+            return '<span style="font-size:10px;color:' + col + ';font-weight:600">'
+                 + txt + '</span>';
+        }
+
+        // 작물 목록에 붙일 작은 수확 표시
+        function harvestBadge(cropName){
+            var list = (typeof analyzeGrowPeriod === 'function') ? analyzeGrowPeriod() : [];
+            var hit = list.find(function(x){ return x.crop === cropName && x.growing; });
+            if(!hit) return '';
+
+            var e = expectHarvest(hit.sow, cropName);
+            if(!e) return '';
+
+            var col, txt;
+            if(e.state === 'over'){       col = '#8D6E63'; txt = '📌 수확 지남'; }
+            else if(e.state === 'ready'){ col = '#2E7D32'; txt = '🧺 거둘 때'; }
+            else if(e.state === 'soon'){  col = '#F57C00'; txt = e.leftToStart + '일 뒤'; }
+            else {                        col = '#90A4AE'; txt = e.leftToStart + '일 남음'; }
+
+            // 수확 예정 기간을 함께 보여준다
+            var md = function(d){ return d ? (d.getMonth()+1) + '/' + d.getDate() : ''; };
+            var span = e.from
+                ? md(e.from) + (e.to ? '~' + md(e.to) : '')
+                : '';
+
+            return '<span style="font-size:10px;color:' + col + ';font-weight:600">'
+                 + txt + '</span>'
+                 + (span ? '<br><span style="font-size:10px;color:#78909C;'
+                         + 'white-space:nowrap">🧺 ' + span + '</span>' : '')
+                 + (e.days ? '<br><span style="font-size:9.5px;color:#BDBDBD">'
+                           + e.days + '일째</span>' : '');
+        }
+
+        // 곧 거둘 작물 — 이번 주 할일 맨 위에
+        function renderHarvestSoon(){
+            var box = document.getElementById('week-harvest');
+            if(!box) return;
+
+            var list = (typeof analyzeGrowPeriod === 'function') ? analyzeGrowPeriod() : [];
+            var soon = [];
+
+            list.filter(function(x){ return x.growing; }).forEach(function(x){
+                var e = expectHarvest(x.sow, x.crop);
+                if(!e) return;
+                // 거둘 때 · 2주 안 · 때 지남 만 고른다
+                if(e.state === 'ready' || e.state === 'soon' || e.state === 'over'){
+                    soon.push({ crop: x.crop, days: e.days, e: e });
+                }
+            });
+
+            if(!soon.length){ box.innerHTML = ''; return; }
+
+            // 급한 것부터 — 때 지남 → 거둘 때 → 곧
+            var rank = { ready: 0, soon: 1, over: 2 };
+            soon.sort(function(a, b){
+                var d = rank[a.e.state] - rank[b.e.state];
+                return d !== 0 ? d : (a.e.leftToStart || 0) - (b.e.leftToStart || 0);
+            });
+
+            var rows = soon.slice(0, 8).map(function(x){
+                var e = x.e, col, mark, msg;
+                if(e.state === 'over'){
+                    col = '#8D6E63'; mark = '📌';
+                    msg = '수확 때가 지났습니다 — 거두셨으면 기록해 주세요';
+                } else if(e.state === 'ready'){
+                    col = '#2E7D32'; mark = '🧺';
+                    msg = '거둘 때입니다' + (e.leftToEnd > 0 ? ' · ' + e.leftToEnd + '일 남음' : '');
+                } else {
+                    col = '#F57C00'; mark = '📅';
+                    msg = e.leftToStart + '일 뒤부터';
+                }
+                return '<div style="display:flex;align-items:center;gap:7px;'
+                     + 'font-size:12.5px;margin-bottom:4px">'
+                     + '<span style="flex:0 0 16px">' + mark + '</span>'
+                     + '<span style="flex:0 0 auto;font-weight:700;color:#33691E">'
+                     + x.crop + '</span>'
+                     + '<span style="flex:1;color:' + col + ';font-weight:600">' + msg + '</span>'
+                     + '<span style="font-size:11px;color:#9E9E9E;white-space:nowrap">'
+                     + (e.from ? (e.from.getMonth()+1) + '/' + e.from.getDate() : '')
+                     + (e.to ? '~' + (e.to.getMonth()+1) + '/' + e.to.getDate() : '')
+                     + '</span></div>';
+            }).join('');
+
+            var ready = soon.filter(function(x){ return x.e.state === 'ready'; }).length;
+            var over  = soon.filter(function(x){ return x.e.state === 'over'; }).length;
+
+            box.innerHTML =
+              '<div style="background:#FFF8E1;border:1.5px solid #FFCC80;border-radius:10px;'
+            + 'padding:11px 13px;margin-bottom:12px">'
+            + '<div style="font-weight:700;color:#E65100;font-size:14px;margin-bottom:7px">'
+            + '🧺 곧 거둘 작물 <span style="font-weight:400;font-size:12px;color:#795548">· '
+            + (ready ? '지금 ' + ready + '건' : soon.length + '건')
+            + (over ? ' · 지난 것 ' + over + '건' : '') + '</span></div>'
+            + rows
+            + (over ? '<div style="font-size:10.5px;color:#8D6E63;margin-top:6px;'
+                    + 'padding-top:6px;border-top:1px dashed #FFCC80;line-height:1.6">'
+                    + '이미 거두신 작물은 <b>기록 일지</b>에 수확을 남겨주세요.<br>'
+                    + '그러면 목록에서 빠지고, 이듬해 계획에 쓰입니다.</div>' : '')
+            + '</div>';
+        }
+
+        // ══ 표준 재배기간 (soilCropCode 시트) ══════════════
+        //   crop_Cd | crop_Nm | … | 최소재배일수 | 최대재배일수 | 표준수확시기 | 재배유형
+
+        var _stdCache = null;
+        function _stdPeriod(){
+            if(_stdCache) return _stdCache;
+            var rows = APP.data.soilCropCode || [];
+            var by = {};
+            var hdr = null;
+
+            rows.forEach(function(r, i){
+                if(!r) return;
+                // 첫 행이 머리글이면 위치를 기억한다
+                if(i === 0 && String(r[0]).indexOf('crop_Cd') >= 0){
+                    hdr = r.map(function(x){ return String(x).trim(); });
+                    return;
+                }
+                var cd = ('00000' + String(r[0] || '').trim()).slice(-5);
+                if(!/^\d{5}$/.test(cd)) return;
+
+                var iMin = hdr ? hdr.indexOf('최소재배일수') : 6;
+                var iMax = hdr ? hdr.indexOf('최대재배일수') : 7;
+                var iSow = hdr ? hdr.indexOf('권장파종시기') : 4;
+                var iHar = hdr ? hdr.indexOf('표준수확시기') : 11;
+                var iMemo = hdr ? hdr.indexOf('재배유형') : 12;
+
+                var mn = parseInt(r[iMin < 0 ? 6 : iMin], 10);
+                var mx = parseInt(r[iMax < 0 ? 7 : iMax], 10);
+                if(isNaN(mn) && isNaN(mx)) return;
+
+                by[cd] = {
+                    name: String(r[1] || '').trim(),
+                    min: isNaN(mn) ? null : mn,
+                    max: isNaN(mx) ? null : mx,
+                    sowTime: String(r[iSow < 0 ? 4 : iSow] || '').trim(),
+                    harvestTime: String(r[iHar < 0 ? 11 : iHar] || '').trim(),
+                    memo: String(r[iMemo < 0 ? 12 : iMemo] || '').trim()
+                };
+            });
+            _stdCache = by;
+            return by;
+        }
+
+        // 작물 이름으로 표준 재배기간을 찾는다 (expCd 를 먼저 쓴다)
+        function stdPeriodOf(cropName){
+            var db = _stdPeriod();
+            if(!Object.keys(db).length) return null;
+
+            // ① expCd 로 바로 찾기
+            var code = (typeof _expCodeOf === 'function') ? _expCodeOf(cropName) : null;
+            if(code){
+                var c5 = ('00000' + code).slice(-5);
+                if(db[c5]) return db[c5];
+            }
+
+            // ② 이름으로 찾기 — 뒤쪽 낱말부터
+            var bare = String(cropName || '').replace(/\([^)]*\)/g, ' ')
+                        .replace(/[①-⑩]/g, ' ').replace(/\d+\s*이랑|\d+\s*차|후작/g, ' ')
+                        .replace(/\s+/g, ' ').trim();
+            var words = bare.split(' ').filter(Boolean);
+            var last = words[words.length - 1] || bare;
+
+            var core = function(s){ return String(s).replace(/\([^)]*\)/g, '').trim(); };
+            var found = null;
+            Object.keys(db).some(function(k){
+                var n = core(db[k].name);
+                if(n === last || n === bare){ found = db[k]; return true; }
+                return false;
+            });
+            if(found) return found;
+
+            // ③ 부분 일치 — 두 글자 이상
+            Object.keys(db).some(function(k){
+                var n = core(db[k].name);
+                if(n.length >= 2 && (last.indexOf(n) >= 0 || n.indexOf(last) >= 0)){
+                    found = db[k]; return true;
+                }
+                return false;
+            });
+            return found;
+        }
+
+        // 심은 날 + 표준일수 = 예상 수확 기간
+        function expectHarvest(sowDate, cropName){
+            var std = stdPeriodOf(cropName);
+            if(!std || !sowDate) return null;
+            var s = new Date(sowDate);
+            if(isNaN(s.getTime())) return null;
+
+            var from = std.min ? new Date(s.getTime() + std.min * 86400000) : null;
+            var to   = std.max ? new Date(s.getTime() + std.max * 86400000) : null;
+            var now  = new Date();
+            var days = Math.round((now - s) / 86400000);
+
+            var state = 'before';
+            if(from && now >= from) state = (to && now > to) ? 'over' : 'ready';
+            else if(from && (from - now) / 86400000 <= 14) state = 'soon';
+
+            return { std: std, from: from, to: to, days: days, state: state,
+                     leftToStart: from ? Math.round((from - now) / 86400000) : null,
+                     leftToEnd:   to   ? Math.round((to - now) / 86400000) : null };
+        }
+
+        // ══ 재배 기간 분석 ═══════════════════════════════
+        var _SOW = ['파종', '정식', '심기', '이식'];
+        var _HARVEST = ['수확', '최종수확', '거둠'];
+
+        function _recDate(v){
+            var s = String(v || '').trim();
+            if(!s) return null;
+            var d = new Date(s);
+            return isNaN(d.getTime()) ? null : d;
+        }
+
+        function _cropBase(s){
+            return String(s || '').replace(/\([^)]*\)/g, '')
+                    .replace(/[①-⑩]/g, '').replace(/\d+\s*이랑/g, '')
+                    .replace(/\d+\s*차/g, '').replace(/\s+/g, ' ').trim();
+        }
+
+        // 작물마다 심은 날·거둔 날을 찾아 기간을 낸다
+        function analyzeGrowPeriod(){
+            var rows = APP.data.growRecords || [];
+            if(!rows.length) return [];
+
+            var by = {};
+            rows.forEach(function(r){
+                if(!r) return;
+                var crop = String(r[1] || '').trim();
+                if(!crop) return;
+                var ev = String(r[3] || r[11] || '').trim();
+                var d = _recDate(r[2]);
+                if(!ev || !d) return;
+
+                var key = crop + '|' + d.getFullYear();
+                if(!by[key]) by[key] = { crop: crop, year: d.getFullYear(),
+                                          sow: null, harvest: null, last: null, n: 0 };
+                var o = by[key];
+                o.n++;
+
+                if(_SOW.indexOf(ev) >= 0 && (!o.sow || d < o.sow)) o.sow = d;
+                if(_HARVEST.some(function(h){ return ev.indexOf(h) >= 0; })){
+                    if(!o.harvest || d < o.harvest) o.harvest = d;
+                    if(!o.last || d > o.last) o.last = d;
+                }
+            });
+
+            var out = [];
+            Object.keys(by).forEach(function(k){
+                var o = by[k];
+                if(!o.sow) return;
+                out.push({
+                    crop: o.crop, base: _cropBase(o.crop), year: o.year,
+                    sow: o.sow, harvest: o.harvest, last: o.last, n: o.n,
+                    days: o.harvest ? Math.round((o.harvest - o.sow) / 86400000) : null,
+                    span: (o.last && o.harvest && o.last > o.harvest)
+                          ? Math.round((o.last - o.harvest) / 86400000) : 0,
+                    growing: !o.harvest
+                });
+            });
+            out.sort(function(a, b){
+                if(a.days === null) return 1;
+                if(b.days === null) return -1;
+                return a.days - b.days;
+            });
+            return out;
+        }
+
+        // 같은 작물의 여러 해를 묶어 평균을 낸다
+        function growPeriodSummary(){
+            var list = analyzeGrowPeriod().filter(function(x){ return x.days !== null; });
+            var by = {};
+            list.forEach(function(x){
+                if(!by[x.base]) by[x.base] = [];
+                by[x.base].push(x);
+            });
+            return Object.keys(by).map(function(k){
+                var v = by[k];
+                var sum = v.reduce(function(a, b){ return a + b.days; }, 0);
+                return { base: k, n: v.length, avg: Math.round(sum / v.length),
+                         min: Math.min.apply(null, v.map(function(x){ return x.days; })),
+                         max: Math.max.apply(null, v.map(function(x){ return x.days; })),
+                         items: v };
+            }).sort(function(a, b){ return a.avg - b.avg; });
+        }
+
+        // 기록일지만 다시 읽는다 — 전체(3000여 건)를 읽지 않아 빠릅니다
+        async function reloadRecords(){
+            try {
+                var res = await fetch(APP.gasUrl + '?action=getGrowRecords');
+                var txt = await res.text();
+                var j = null;
+                try { j = JSON.parse(txt); } catch(e){
+                    console.warn('📅 기록일지 읽기 — JSON 이 아닙니다');
+                }
+
+                var rows = j && (j.data || j.rows || j.list || j.records);
+                if(j && j.success && Array.isArray(rows)){
+                    // 머리글이 섞여 오면 뺀다
+                    if(rows.length && rows[0] && String(rows[0][0]) === 'id') rows = rows.slice(1);
+                    APP.data.growRecords = rows;
+                    if(typeof saveData === 'function') saveData();
+                    renderRecords();
+                    console.log('📅 기록일지만 다시 읽음:', rows.length + '개');
+                    return true;
+                }
+                console.warn('📅 기록일지 응답이 이상합니다 — 전체를 다시 읽습니다');
+            } catch(e){
+                console.warn('📅 기록일지 읽기 실패:', e.message);
+            }
+            // 안 되면 전체를 읽는다
+            await reloadFromSheets(true);
+            return false;
         }
 
         // ══ 글자 크기 ════════════════════════════════════
