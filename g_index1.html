@@ -1376,7 +1376,7 @@
 
             </div>
 
-            <!-- 🏡 우리 밭&최신작물목록 갱신 -->
+            <!-- 🏡 우리 밭 -->
             <div id="about" class="tab-content">
                 <div class="section-title">
                     <span class="emoji">🏡</span>
@@ -3742,13 +3742,27 @@
                     const vClean = v.toLowerCase().replace(/[()①②③④⑤\d\s]/g, '');
                     
                     if (cropClean.length >= 2 && vClean.length >= 2) {
-                        const match = cropClean === vClean || 
-                                     cropClean.includes(vClean) ||
-                                     vClean.includes(cropClean);
+                        // ⚠️ 그냥 포함되기만 하면 「레몬」 이 「다래 레몬프레시」 와,
+                        //    「망고」 가 「블랙망고수박」 과 잘못 이어집니다.
+                        //    낱말 단위로 견주거나, 뒤가 맞아떨어질 때만 같은 작물로 봅니다.
+                        const _sp = s => String(s).replace(/[()①②③④⑤\d]/g, ' ')
+                                          .replace(/\s+/g, ' ').trim();
+                        const _aw = _sp(cropName).toLowerCase().split(' ').filter(Boolean);
+                        const _bw = _sp(v).toLowerCase().split(' ').filter(Boolean);
+
+                        let match = (cropClean === vClean);
+                        // ① 낱말이 통째로 같은 것이 있으면  (참다래 ↔ 다래 참다래(키위))
+                        if (!match) match = _aw.some(x => x.length >= 2 && _bw.indexOf(x) >= 0);
+                        // ② 뒤가 맞아떨어지면  (단호박 ↔ 보우짱 단호박)
+                        if (!match) {
+                            const _s = cropClean.length <= vClean.length ? cropClean : vClean;
+                            const _l = cropClean.length <= vClean.length ? vClean : cropClean;
+                            if (_s.length >= 2 && _l.endsWith(_s)) match = true;
+                        }
                         
                         if (match) {
-                            console.log('✅ 포함 매칭:', cropName, '→', main, 
-                                       '(정제: ' + cropClean + ' vs ' + vClean + ')');
+                            if(!window._matched) window._matched = [];
+                            window._matched.push(cropName + ' → ' + main);
                         }
                         return match;
                     }
@@ -3759,7 +3773,18 @@
             }
             
             // 3️⃣ 그룹에 없으면 자신
-            console.log('❓ 그룹 미등록:', cropName);
+            // 한 줄씩 찍으면 300여 줄이 되어 정작 필요한 것을 가립니다.
+            //   모아 두었다가 한 번만 알려줍니다.
+            if(!window._noGroup) window._noGroup = {};
+            window._noGroup[cropName] = (window._noGroup[cropName] || 0) + 1;
+            if(!window._noGroupTimer){
+                window._noGroupTimer = setTimeout(function(){
+                    var ks = Object.keys(window._noGroup || {});
+                    if(ks.length) console.log('❓ 그룹 미등록 ' + ks.length + '종 '
+                        + '(우리 밭에 없는 작물입니다) — 자세히 보시려면 rhwpGroups()');
+                    window._noGroupTimer = null;
+                }, 300);
+            }
             return cropName;
         }
 
@@ -6460,6 +6485,24 @@
                 alert('완료 표시에 실패했습니다.\n' + (r.message || ''));
             }
         }
+
+        // 콘솔에서 확인할 때 쓰는 것들
+        window.rhwpGroups = function(){
+            var g = window._noGroup || {};
+            var ks = Object.keys(g).sort();
+            console.log('❓ 그룹에 없는 작물 ' + ks.length + '종');
+            console.log('   ' + ks.join(', '));
+            console.log('   (농약이 적용된 작물 중 우리 밭에 없는 것입니다 — 정상입니다)');
+            return ks;
+        };
+        window.rhwpMatched = function(){
+            var m = window._matched || [];
+            var uniq = [];
+            m.forEach(function(x){ if(uniq.indexOf(x) < 0) uniq.push(x); });
+            console.log('✅ 이어진 작물 ' + uniq.length + '건');
+            uniq.forEach(function(x){ console.log('   ' + x); });
+            return uniq;
+        };
 
         // 시트 자료를 갱신한다 (GAS 의 시트갱신 을 부른다)
         async function updateSheets(){
