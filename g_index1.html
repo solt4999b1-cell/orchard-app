@@ -3010,7 +3010,36 @@
                 alert(`✅ ${cropName}의 품종이 "${newVariety}"로 저장되었습니다.`);
             }
         }
+        
+        // ════════════════════════════════════════════════════════════
+        // ✅ 최종수확 판별 공통 유틸 함수
+        // ════════════════════════════════════════════════════════════
+        function _isCropHarvestedFinal(cropName) {
+            if (!cropName || !APP.data.growRecords) return false;
+            
+            const clean = s => String(s || '').replace(/\([^)]*\)/g, '').replace(/[①-⑩]/g, '').trim();
+            const targetClean = clean(cropName);
 
+            return APP.data.growRecords.some(r => {
+                if (!r) return false;
+                const recCrop = String(r[1] || '').trim();
+                const recClean = clean(recCrop);
+                if (!recClean || (recClean !== targetClean && recCrop !== cropName)) return false;
+
+                // eventType(r[3]), type, note(r[4]), extra(r[11]) 등에서 "최종수확" 확인
+                const eventType = String(r[3] || '').trim();
+                const noteType  = String(r[4] || '').trim();
+                const extraType = String(r[11] || '').trim();
+
+                return eventType.includes('최종수확') || 
+                       noteType.includes('최종수확') || 
+                       extraType.includes('최종수확');
+            });
+        }
+        
+        // ════════════════════════════════════════════════════════════
+        // 🌾 재배 작물 테이블 렌더링 (최종수확된 채소 제외)
+        // ════════════════════════════════════════════════════════════
         function renderPlants() {
             if (!APP.data.growPlants || APP.data.growPlants.length === 0) {
                 document.getElementById('plants-fruits-table').style.display = 'none';
@@ -3019,22 +3048,6 @@
                 document.getElementById('plants-vegetables-empty').style.display = 'block';
                 return;
             }
-
-            // ✅ 최종수확된 작물 목록 집합(Set) 추출
-            // growRecords 시트의 eventType 또는 type(보통 index 3 또는 열 이름)이 "최종수확"인 작물명 확인
-            const harvestedCrops = new Set();
-            (APP.data.growRecords || []).forEach(r => {
-                if (!r) return;
-                const cropName = String(r[1] || '').trim();
-                // r[3] (작업종류/eventType) 또는 기타 열에 "최종수확"이 포함되어 있는지 확인
-                const eventType = String(r[3] || '').trim();
-                const noteType = String(r[4] || '').trim();
-                const extraType = String(r[11] || '').trim();
-                
-                if (eventType === '최종수확' || noteType === '최종수확' || extraType === '최종수확') {
-                    if (cropName) harvestedCrops.add(cropName);
-                }
-            });
 
             // 유실수와 채소로 분류
             const fruitPlants = [];
@@ -3047,15 +3060,8 @@
                 if (isFruit) {
                     fruitPlants.push(r);
                 } else {
-                    // ✅ 채소의 경우 growRecords에 '최종수확' 기록이 있는 작물은 제외
-                    // (작물명 정확 일치 및 이랑/특수기호 제거 후 포함 여부 검사)
-                    const isHarvested = harvestedCrops.has(cropName) || Array.from(harvestedCrops).some(h => {
-                        const cleanH = h.replace(/\([^)]*\)/g, '').replace(/[①-⑩]/g, '').trim();
-                        const cleanCrop = cropName.replace(/\([^)]*\)/g, '').replace(/[①-⑩]/g, '').trim();
-                        return cleanH && cleanCrop && (cleanH === cleanCrop);
-                    });
-
-                    if (!isHarvested) {
+                    // ✅ 채소 중 최종수확된 작물은 목록에서 제외
+                    if (!_isCropHarvestedFinal(cropName)) {
                         vegPlants.push(r);
                     }
                 }
@@ -3817,13 +3823,27 @@
             return cropName;
         }
 
+        // ════════════════════════════════════════════════════════════
+        // 재배 중인 작물 목록 (프로그램 전체 공유 필터)
+        // ════════════════════════════════════════════════════════════
         function getOwnedPlants() {
-            // 재배 작물 시트(growPlants)에서 작물명 추출
             if (!APP.data.growPlants || APP.data.growPlants.length === 0) {
                 return [];
             }
             
-            return APP.data.growPlants.map(r => r[1] || '').filter(name => name.trim());
+            return APP.data.growPlants
+                .filter(r => {
+                    if (!r || !r[1]) return false;
+                    const cropName = String(r[1]).trim();
+                    const isFruit = classifyPlant(cropName, r[4]) === 'fruits';
+                    // 채소인 경우 최종수확된 작물은 제외
+                    if (!isFruit && _isCropHarvestedFinal(cropName)) {
+                        return false;
+                    }
+                    return true;
+                })
+                .map(r => String(r[1]).trim())
+                .filter(name => name.length > 0);
         }
 
         function filterOwnedCrops(allCrops, ownedPlantNames) {
@@ -6205,15 +6225,24 @@
 
         // 이미 끝난 작물인가 — status 와 비고(crops) 를 함께 본다
         //   비고에 「수확완료」「종료」 같은 말이 있으면 시비 대상에서 뺀다
-        function _isFinished(row){
+        // ════════════════════════════════════════════════════════════
+        // 시비 및 수확 관리의 종료 작물 판정 함수
+        // ════════════════════════════════════════════════════════════
+        function _isFinished(row) {
+            if (!row) return true;
             var hdr = _gpHeaders();
+            var cropName = String(row[hdr.indexOf('name')] || '').trim();
+            var isFruit = classifyPlant(cropName, row[hdr.indexOf('category')]) === 'fruits';
+
+            // ✅ 채소 작물이고 최종수확 기록이 있다면 종료 처리
+            if (!isFruit && _isCropHarvestedFinal(cropName)) return true;
+
             var s = String(row[hdr.indexOf('status')] || '').toLowerCase().trim();
-            if(['dead','deleted','고사','삭제'].indexOf(s) >= 0) return true;
-            // 「수확완료」「최종수확」「재배종료」 등 — 띄어쓰기가 있어도 잡는다
-            if(/수확\s*완료|최종\s*수확|재배\s*완료|재배\s*종료|종료|철거|정리\s*완료|폐기/.test(s)) return true;
+            if (['dead', 'deleted', '고사', '삭제'].indexOf(s) >= 0) return true;
+            if (/수확\s*완료|최종\s*수확|재배\s*완료|재배\s*종료|종료|철거|정리\s*완료|폐기/.test(s)) return true;
 
             var memo = String(row[hdr.indexOf('crops')] || '');
-            if(/수확\s*완료|최종\s*수확|재배\s*완료|재배\s*종료|철거|정리\s*완료|폐기/.test(memo)) return true;
+            if (/수확\s*완료|최종\s*수확|재배\s*완료|재배\s*종료|철거|정리\s*완료|폐기/.test(memo)) return true;
             return false;
         }
 
@@ -7084,48 +7113,68 @@
         }
 
         // 작물마다 심은 날·거둔 날을 찾아 기간을 낸다
-        function analyzeGrowPeriod(){
+        // ════════════════════════════════════════════════════════════
+        // 재배 기간 분석 함수 (최종수확 시 growing: false 확정)
+        // ════════════════════════════════════════════════════════════
+        function analyzeGrowPeriod() {
             var rows = APP.data.growRecords || [];
-            if(!rows.length) return [];
+            if (!rows.length) return [];
 
             var by = {};
-            rows.forEach(function(r){
-                if(!r) return;
+            rows.forEach(function(r) {
+                if (!r) return;
                 var crop = String(r[1] || '').trim();
-                if(!crop) return;
+                if (!crop) return;
                 var ev = String(r[3] || r[11] || '').trim();
                 var d = _recDate(r[2]);
-                if(!ev || !d) return;
+                if (!ev || !d) return;
 
                 var key = crop + '|' + d.getFullYear();
-                if(!by[key]) by[key] = { crop: crop, year: d.getFullYear(),
-                                          sow: null, harvest: null, last: null, n: 0 };
+                if (!by[key]) by[key] = { 
+                    crop: crop, 
+                    year: d.getFullYear(),
+                    sow: null, 
+                    harvest: null, 
+                    last: null, 
+                    hasFinalHarvest: false, 
+                    n: 0 
+                };
                 var o = by[key];
                 o.n++;
 
-                if(_SOW.indexOf(ev) >= 0 && (!o.sow || d < o.sow)) o.sow = d;
-                if(_HARVEST.some(function(h){ return ev.indexOf(h) >= 0; })){
-                    if(!o.harvest || d < o.harvest) o.harvest = d;
-                    if(!o.last || d > o.last) o.last = d;
+                if (_SOW.indexOf(ev) >= 0 && (!o.sow || d < o.sow)) o.sow = d;
+                if (_HARVEST.some(function(h) { return ev.indexOf(h) >= 0; })) {
+                    if (!o.harvest || d < o.harvest) o.harvest = d;
+                    if (!o.last || d > o.last) o.last = d;
+                    if (ev.includes('최종수확')) o.hasFinalHarvest = true;
                 }
             });
 
             var out = [];
-            Object.keys(by).forEach(function(k){
+            Object.keys(by).forEach(function(k) {
                 var o = by[k];
-                if(!o.sow) return;
+                if (!o.sow) return;
+                
+                // 최종수확이 있거나 수확일이 존재하면 growing = false
+                var isGrowing = !o.harvest && !o.hasFinalHarvest && !_isCropHarvestedFinal(o.crop);
+
                 out.push({
-                    crop: o.crop, base: _cropBase(o.crop), year: o.year,
-                    sow: o.sow, harvest: o.harvest, last: o.last, n: o.n,
+                    crop: o.crop, 
+                    base: _cropBase(o.crop), 
+                    year: o.year,
+                    sow: o.sow, 
+                    harvest: o.harvest, 
+                    last: o.last, 
+                    n: o.n,
                     days: o.harvest ? Math.round((o.harvest - o.sow) / 86400000) : null,
                     span: (o.last && o.harvest && o.last > o.harvest)
                           ? Math.round((o.last - o.harvest) / 86400000) : 0,
-                    growing: !o.harvest
+                    growing: isGrowing
                 });
             });
-            out.sort(function(a, b){
-                if(a.days === null) return 1;
-                if(b.days === null) return -1;
+            out.sort(function(a, b) {
+                if (a.days === null) return 1;
+                if (b.days === null) return -1;
                 return a.days - b.days;
             });
             return out;
