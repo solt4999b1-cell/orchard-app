@@ -347,9 +347,10 @@ const CONFIG = {
   GAS_URL: 'https://script.google.com/macros/s/AKfycbylDKpNwxsbkj4lZV7tgBnTEAWBOX5FZ65zrtH66nrqH4IRSIBX8vlTtqACbpr_xLAz/exec',
   GAS_URL_SHEETS: 'https://script.google.com/macros/s/AKfycbwXbgptSmUJ8vhr_crTAsnbMhoSPzronQdJNWfLN2z7xaJpb-k3Pr8Ts9aNjfqKDI4b/exec',
   cropMapToPsis: { '단감':'감', '참다래':'참다래(키위)', '키위':'참다래(키위)' },
-  // 실제 구글 시트 탭 이름과 일치시킨다 (GAS의 getPlants 가 읽는 시트)
+  // 실제 구글 시트 탭 이름과 일치시킨다
   plantsCollection: 'growPlants',
   pesticidesCollection: 'myPesticides',
+  recordsCollection: 'growRecords', // ✅ 추가: 생육기록 시트
   fruitKeywords: [
       '유실수','과수','묘목',
       // 인과류·핵과류
@@ -571,6 +572,7 @@ const DB = {
     if(this.LOCAL_ONLY.includes(collName)) return [];
     if(collName === CONFIG.plantsCollection)     return [{ action:'getPlants' }];
     if(collName === CONFIG.pesticidesCollection) return [{ action:'getMyPesticides' }];
+    if(collName === CONFIG.recordsCollection)    return [{ action:'getGrowRecords' }, { action:'readCollection', collectionName:'growRecords' }]; // ✅ 추가
     // 그 밖의 컬렉션은 예전처럼 후보를 훑는다
     return [
       { action:'readCollection', collectionName: collName },
@@ -910,6 +912,41 @@ const App = {
     "들깨","참깨","땅콩","오미자","복분자","유채","산수유","담배","구기자","하수오","초피","황기","지황","맥문동","천궁","감초","시호","모란","황금","고본","택사","회향","개똥쑥","갯기름","도라지","둥굴레","면화","배초향","백수오","사탕무","삽주","양마","오갈피","당귀","초석잠"
   ],
 
+  // ✅ 추가: 최종수확 작물 목록 추출 및 판별
+  _finalHarvestedCrops: new Set(),
+  async loadFinalHarvestedCrops(){
+    try {
+      const recs = await DB.list(CONFIG.recordsCollection);
+      this._finalHarvestedCrops = new Set();
+      (recs || []).forEach(r => {
+        if(!r) return;
+        const cropName = String(r.plantName || r.cropName || r.name || (Array.isArray(r) ? r[1] : '') || '').trim();
+        const evType = String(r.eventType || r.type || (Array.isArray(r) ? r[3] : '') || '').trim();
+        const note = String(r.note || (Array.isArray(r) ? r[4] : '') || '').trim();
+        const extra = String(r.extra || (Array.isArray(r) ? r[11] : '') || '').trim();
+
+        if (evType.includes('최종수확') || note.includes('최종수확') || extra.includes('최종수확')) {
+          if (cropName) this._finalHarvestedCrops.add(cropName);
+        }
+      });
+      console.log(`🧺 최종수확 작물 ${this._finalHarvestedCrops.size}종 감지됨:`, Array.from(this._finalHarvestedCrops));
+    } catch(e) {
+      console.warn('최종수확 기록 확인 실패:', e);
+      this._finalHarvestedCrops = new Set();
+    }
+  },
+
+  isFinalHarvested(cropName){
+    if(!cropName || !this._finalHarvestedCrops || !this._finalHarvestedCrops.size) return false;
+    if(this._finalHarvestedCrops.has(cropName)) return true;
+    const clean = s => String(s||'').replace(/\([^)]*\)/g, '').replace(/[①-⑩]/g, '').trim();
+    const target = clean(cropName);
+    return Array.from(this._finalHarvestedCrops).some(h => {
+      const cH = clean(h);
+      return cH && target && (cH === target);
+    });
+  },
+	
   async init(){
     const dl = document.createElement('datalist');
     dl.id = 'stdCrops';
@@ -921,14 +958,14 @@ const App = {
     this._external = q.get('embed')==='1' || window.self!==window.top || q.has('crop') || q.has('cropId');
     if(q.get('embed')==='1' || (window.self!==window.top && q.has('crop'))) document.body.classList.add('embed');
 
-    // 서로 의존하지 않는 작업이므로 동시에 진행한다 (순차 대기 → 병렬)
+    // 서로 의존하지 않는 작업이므로 동시에 진행한다
     const t0 = performance.now();
     try {
-      await Promise.all([ Owned.load(), this.loadStdOverrides() ]);
+      // ✅ loadFinalHarvestedCrops 추가 병렬 실행
+      await Promise.all([ Owned.load(), this.loadStdOverrides(), this.loadFinalHarvestedCrops() ]);
       this._crops = await this.loadCrops();
       console.log(`⏱️ 초기 로딩 ${((performance.now()-t0)/1000).toFixed(1)}초`);
     } catch (e) {
-      // 불러오기에 실패해도 '불러오는 중…' 문구가 계속 남아 있지 않도록 한다
       console.error('❌ 작물 목록 로드 실패:', e);
       this._crops = this._crops || [];
       const box = document.getElementById('crops');
@@ -1055,7 +1092,7 @@ const App = {
   async loadCrops(){
     const raw = await DB.rawPlants();
     const seen=new Set(), out=[];
-    let skipStatus=0, skipNoName=0, skipDup=0;
+    let skipStatus=0, skipNoName=0, skipDup=0, skipHarvested=0;
     for(const p of (raw||[])){
       const st = this.normStatus(p.status || p['상태'] || '');
       if(st === 'deleted' || st === 'dead' || st === 'done'){ skipStatus++; continue; }
@@ -1063,16 +1100,22 @@ const App = {
       const originalName = p.name || p.cropName || p['작물명'] || p['이름'] || p['작물'] || '';
       if(!originalName){ skipNoName++; continue; }
       if(seen.has(originalName)){ skipDup++; continue; } seen.add(originalName);
+      
+      const category = this.normCategory(p.category || p.cat, originalName);
+
+      // ✅ 채소 작물이면서 최종수확된 경우 제외
+      if(category !== '유실수' && this.isFinalHarvested(originalName)){
+        skipHarvested++;
+        continue;
+      }
+
       const stdName = this.getStandardName(originalName);
       out.push({
         id: p.id||originalName, name: originalName,
-        // 실제 작물명이 앞, 검색용 표준명은 괄호 안.
-        // (예전엔 '아주까리(아주까리콩)' 처럼 표준명이 앞에 와서 다른 작물로 착각하기 쉬웠다)
         displayName: stdName !== originalName ? `${originalName} (${stdName})` : originalName,
-        // category 가 비었거나 이상하면 cat 열을, 그것도 아니면 작물명으로 판정
-        category: this.normCategory(p.category || p.cat, originalName),
-        rawCategory: String(p.category == null ? '' : p.category).trim(),   // 시트에 실제로 적힌 값
-        catSure:    this.classify(originalName, p.category || p.cat).sure,  // 판정을 믿어도 되는가
+        category: category,
+        rawCategory: String(p.category == null ? '' : p.category).trim(),
+        catSure:    this.classify(originalName, p.category || p.cat).sure,
         status: st,
         ncpmsName: stdName, psisName: CONFIG.cropMapToPsis[stdName] || stdName,
         location: p.location || p.spot || '' 
@@ -1081,18 +1124,12 @@ const App = {
     const needFix = out.filter(c => c.rawCategory !== '유실수' && c.rawCategory !== '채소');
     const unsure  = needFix.filter(c => !c.catSure);
     console.log(`🌱 작물 정리 결과: 원본 ${(raw||[]).length}건 → 표시 ${out.length}건`
-              + ` (상태제외 ${skipStatus}, 이름없음 ${skipNoName}, 중복 ${skipDup})`);
+              + ` (상태제외 ${skipStatus}, 최종수확제외 ${skipHarvested}, 이름없음 ${skipNoName}, 중복 ${skipDup})`);
     if(needFix.length){
       console.warn(`🟠 시트 분류값이 유실수/채소가 아닌 작물 ${needFix.length}종 — 목록에 • 로 표시됩니다`);
-      console.table(needFix.map(c => ({ 작물:c.name, '시트값':c.rawCategory || '(빈칸)',
-                                        '자동판정':c.category, '확신':c.catSure ? '높음' : '낮음 ?' })));
     }
     if(unsure.length){
-      console.warn(`❓ 이름만으로 분류를 확신할 수 없는 작물 ${unsure.length}종 — 목록에 빨간 ? 로 표시됩니다. `
-                 + `✏️ 로 직접 지정해 주세요: ${unsure.map(c=>c.name).join(', ')}`);
-    }
-    if((raw||[]).length && !out.length && (raw||[])[0]){
-      console.warn('⚠️ 데이터는 있으나 작물명을 못 찾았습니다. 첫 행 내용:', (raw||[])[0]);
+      console.warn(`❓ 이름만으로 분류를 확신할 수 없는 작물 ${unsure.length}종 — 목록에 빨간 ? 로 표시됩니다.`);
     }
     return out.sort((a,b)=> (a.category===b.category ? a.displayName.localeCompare(b.displayName,'ko') : (a.category==='유실수'?-1:1)));
   },
@@ -1542,7 +1579,14 @@ const CropManager = {
     App.selectByName(v);
   },
   async open() {
-    this.plants = await DB.rawPlants();
+    const raw = await DB.rawPlants();
+    // ✅ 작물상태 관리 창에서도 최종수확된 채소는 표시 제외
+    this.plants = (raw || []).filter(p => {
+      const name = p.name || p.cropName || p['작물명'] || '';
+      const cat = App.normCategory(p.category || p.cat, name);
+      if (cat !== '유실수' && App.isFinalHarvested(name)) return false;
+      return true;
+    });
     this.render();
   },
   async setStatus(id, status) {
