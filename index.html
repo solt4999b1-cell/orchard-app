@@ -873,6 +873,15 @@
 <div class="section" id="sec-sheet">
     <div class="section-title">📒 작업 기록장</div>
 
+    <!-- 작업 추가 버튼 -->
+    <div style="margin-bottom:10px">
+      <button onclick="openAddLogEntry()"
+        style="width:100%;padding:12px;background:#1B5E20;color:white;border:none;
+        border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">
+        ➕ 작업 추가
+      </button>
+    </div>
+
     <!-- 필터 바 -->
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
       <select id="logFilterMonth"
@@ -12937,6 +12946,77 @@ function renderWorkLog() {
   listEl.innerHTML = html;
 }
 
+function openAddLogEntry() {
+  // 새 작업 기록 추가 모달
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
+    'background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:14px;padding:20px;width:90%;max-width:400px;
+      max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+      <div style="font-size:16px;font-weight:700;color:#1B5E20;margin-bottom:14px">➕ 작업 추가</div>
+      <div style="font-size:13px;color:#9E9E9E;margin-bottom:6px">날짜</div>
+      <input id="_addLogDate" type="date" value="${toYMD(REAL_TODAY)}"
+        style="width:100%;padding:9px;border:1.5px solid #E0E0E0;border-radius:8px;
+        font-size:15px;margin-bottom:10px;box-sizing:border-box;font-family:inherit">
+      <div style="font-size:13px;color:#9E9E9E;margin-bottom:6px">작업명 *</div>
+      <input id="_addLogName" type="text" placeholder="예: 물주기, 순치기"
+        style="width:100%;padding:9px;border:1.5px solid #E0E0E0;border-radius:8px;
+        font-size:15px;margin-bottom:10px;box-sizing:border-box;font-family:inherit">
+      <div style="font-size:13px;color:#9E9E9E;margin-bottom:6px">상세 내용</div>
+      <textarea id="_addLogDetail" rows="3"
+        style="width:100%;padding:9px;border:1.5px solid #E0E0E0;border-radius:8px;
+        font-size:15px;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>
+      <div style="font-size:13px;color:#9E9E9E;margin:10px 0 6px">위치·메모</div>
+      <input id="_addLogLoc" type="text" placeholder="예: 3이랑, 온실"
+        style="width:100%;padding:9px;border:1.5px solid #E0E0E0;border-radius:8px;
+        font-size:15px;margin-bottom:10px;box-sizing:border-box;font-family:inherit">
+      <div style="font-size:13px;color:#9E9E9E;margin:10px 0 6px">작업 구분</div>
+      <select id="_addLogType"
+        style="width:100%;padding:9px;border:1.5px solid #E0E0E0;border-radius:8px;
+        font-size:15px;margin-bottom:16px;box-sizing:border-box;font-family:inherit;background:white">
+        ${['일반','시비','병해충','긴급','구입'].map(t =>
+          '<option value="'+t+'">'+t+'</option>'
+        ).join('')}
+      </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button onclick="this.closest('div[style*=fixed]').remove()"
+          style="padding:12px;background:#F5F5F5;border:none;border-radius:8px;
+          font-size:15px;cursor:pointer;font-weight:600;font-family:inherit">취소</button>
+        <button onclick="_saveNewLogEntry(this)"
+          style="padding:12px;background:#1B5E20;color:white;border:none;
+          border-radius:8px;font-size:15px;cursor:pointer;font-weight:700;font-family:inherit">저장</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
+  document.getElementById('_addLogName')?.focus();
+}
+
+function _saveNewLogEntry(btnEl) {
+  const dateVal = document.getElementById('_addLogDate').value || toYMD(REAL_TODAY);
+  const nameVal = document.getElementById('_addLogName').value.trim();
+  if (!nameVal) { showToast('⚠️ 작업명을 입력하세요'); return; }
+  const now = new Date();
+  const entry = {
+    id:     Date.now(),
+    date:   dateVal,
+    time:   now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0'),
+    name:   nameVal,
+    detail: document.getElementById('_addLogDetail').value,
+    loc:    document.getElementById('_addLogLoc').value,
+    type:   document.getElementById('_addLogType').value,
+  };
+  workLog.unshift(entry);
+  if (workLog.length > 500) workLog = workLog.slice(0, 500);
+  localStorage.setItem('workLog', JSON.stringify(workLog));
+  if (typeof fbSaveLog === 'function' && typeof _fbReady !== 'undefined' && _fbReady) fbSaveLog(entry);
+  btnEl.closest('div[style*="fixed"]')?.remove();
+  renderWorkLog();
+  showToast('✅ 작업이 추가되었습니다');
+}
+
 function editLogEntry(id) {
   const e = workLog.find(x => String(x.id) === String(id));
   if (!e) return;
@@ -13550,12 +13630,16 @@ function renderGrowRecords() {
       + '아직 기록이 없습니다<br>+ 버튼으로 기록을 추가하세요</div>';
     return;
   }
+  // '최종수확' 기록은 목록에서 노출하지 않는다
+  const visibleRecords = growRecords.filter(r =>
+    String((r && (r.eventType || r.type)) || '').replace(/\s/g,'') !== '최종수확');
+
   // 검색어로 먼저 거른다 (작물명·종류·내용·날짜 어디든 포함되면 표시)
   const q = String(window._growRecQuery || '').trim().toLowerCase();
   const source = q
-    ? growRecords.filter(r => [r.plantName, r.eventType, r.note, r.date]
+    ? visibleRecords.filter(r => [r.plantName, r.eventType, r.note, r.date]
         .some(v => String(v || '').toLowerCase().includes(q)))
-    : growRecords;
+    : visibleRecords;
 
   if (!source.length) {
     el.innerHTML = '<div style="text-align:center;padding:16px;color:#9E9E9E;font-size:15px">'
