@@ -3020,15 +3020,44 @@
                 return;
             }
 
+            // ✅ 최종수확된 작물 목록 집합(Set) 추출
+            // growRecords 시트의 eventType 또는 type(보통 index 3 또는 열 이름)이 "최종수확"인 작물명 확인
+            const harvestedCrops = new Set();
+            (APP.data.growRecords || []).forEach(r => {
+                if (!r) return;
+                const cropName = String(r[1] || '').trim();
+                // r[3] (작업종류/eventType) 또는 기타 열에 "최종수확"이 포함되어 있는지 확인
+                const eventType = String(r[3] || '').trim();
+                const noteType = String(r[4] || '').trim();
+                const extraType = String(r[11] || '').trim();
+                
+                if (eventType === '최종수확' || noteType === '최종수확' || extraType === '최종수확') {
+                    if (cropName) harvestedCrops.add(cropName);
+                }
+            });
+
             // 유실수와 채소로 분류
             const fruitPlants = [];
             const vegPlants = [];
             
             APP.data.growPlants.forEach(r => {
-                if (classifyPlant(r[1], r[4]) === 'fruits') {
+                const cropName = String(r[1] || '').trim();
+                const isFruit = classifyPlant(r[1], r[4]) === 'fruits';
+
+                if (isFruit) {
                     fruitPlants.push(r);
                 } else {
-                    vegPlants.push(r);
+                    // ✅ 채소의 경우 growRecords에 '최종수확' 기록이 있는 작물은 제외
+                    // (작물명 정확 일치 및 이랑/특수기호 제거 후 포함 여부 검사)
+                    const isHarvested = harvestedCrops.has(cropName) || Array.from(harvestedCrops).some(h => {
+                        const cleanH = h.replace(/\([^)]*\)/g, '').replace(/[①-⑩]/g, '').trim();
+                        const cleanCrop = cropName.replace(/\([^)]*\)/g, '').replace(/[①-⑩]/g, '').trim();
+                        return cleanH && cleanCrop && (cleanH === cleanCrop);
+                    });
+
+                    if (!isHarvested) {
+                        vegPlants.push(r);
+                    }
                 }
             });
 
